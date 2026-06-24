@@ -1,0 +1,49 @@
+[package]
+name = "vg"
+kind = "tool"
+version = "1.75.0"
+release = 1
+license = "Apache-2.0"
+main = "src/main.taf"
+
+[repository]
+url = "https://github.com/taffish/vg"
+
+[command]
+name = "taf-vg"
+
+[runtime]
+pipe = true
+command_mode = true
+
+[container]
+image = "ghcr.io/taffish/vg:1.75.0-r1"
+dockerfile = "docker/Dockerfile"
+build_platforms = "linux/amd64,linux/arm64"
+
+[meta]
+domain = "bio"
+categories = ["pangenome", "variation-graph", "graph-alignment", "genotyping", "variant-calling"]
+keywords = ["vg", "variation graph", "pangenome graph", "GFA", "GBZ", "XG", "GCSA2", "GAM", "giraffe", "genotyping", "variant calling", "graph construction"]
+description = "VG 1.75.0 command-line runtime for constructing, indexing, mapping, genotyping, calling, and converting variation graphs and pangenome graph data."
+
+[upstream]
+name = "vg"
+type = "github"
+repo = "vgteam/vg"
+homepage = "https://github.com/vgteam/vg"
+manual = "https://github.com/vgteam/vg#usage"
+release_url = "https://github.com/vgteam/vg/releases/tag/v1.75.0"
+downloads = "quay.io/vgteam/vg:v1.75.0@sha256:1982a810474ea1990a2ae21adc51b018c8eb709941fc38b6b0d3e83acfe2e0d6; https://github.com/vgteam/vg/releases/tag/v1.75.0"
+version = "1.75.0"
+license = "MIT"
+citation = "Garrison et al. 2018, Variation graph toolkit improves read mapping by representing genetic variation in the reference, Nature Biotechnology"
+doi = "10.1038/nbt.4227"
+watch = "tags"
+strip_prefix = "v"
+
+[smoke]
+backend = "docker"
+timeout = 300
+exist = ["vg", "samtools", "bgzip", "tabix", "ldd", "bash", "grep", "sed"]
+test = ["vg version 2>&1 | grep -F 'vg version v1.75.0' >/dev/null", "{ vg help 2>&1 || true; } | grep -F 'usage: vg <command> [options]' >/dev/null && { vg construct --help 2>&1 || true; } | grep -F 'usage: vg construct' >/dev/null && { vg index --help 2>&1 || true; } | grep -F 'usage: vg index' >/dev/null && { vg stats --help 2>&1 || true; } | grep -F 'usage: vg stats' >/dev/null", "ldd \"$(command -v vg)\" > /tmp/taf-vg-ldd.txt 2>&1 || true; grep -F 'not a dynamic executable' /tmp/taf-vg-ldd.txt >/dev/null", "/opt/vg/share/testdata/vg-smoke.sh /tmp/taf-vg-index-smoke-$$"]
