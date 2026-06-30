@@ -4,7 +4,7 @@ TAFFISH tool app for [VG](https://github.com/vgteam/vg), the variation graph
 toolkit for constructing, indexing, mapping, genotyping, calling, and converting
 variation graphs and pangenome graph data.
 
-This package wraps upstream VG `1.75.0` and publishes it as:
+This package wraps upstream VG `1.75.1` and publishes it as:
 
 ```bash
 taf-vg vg version
@@ -19,8 +19,8 @@ taf-vg vg help
 - TAFFISH metadata, terminal help, and a tiny offline smoke fixture.
 
 The container is based on the official upstream image
-`quay.io/vgteam/vg:v1.75.0` pinned by the multi-architecture manifest digest
-`sha256:1982a810474ea1990a2ae21adc51b018c8eb709941fc38b6b0d3e83acfe2e0d6`.
+`quay.io/vgteam/vg:v1.75.1` pinned by the multi-architecture manifest digest
+`sha256:ff1269af57a140b4fc044145681e16d9d0be0d156156fe844c40018725a3f567`.
 Bioconda was not used for this release because its published VG recipe lagged
 behind the current upstream VG release at packaging time.
 
@@ -116,10 +116,9 @@ packaged CPU runtime. Whole-genome pangenome workflows can still require large
 amounts of memory, CPU time, and temporary disk space, especially during GCSA,
 GBWT/GBZ, Giraffe, and variant-calling workflows.
 
-Upstream VG `1.75.0` release notes mention a known issue in one single-command
-haplotype sampling mode of `vg giraffe`: KMC log messages can be written into
-alignment output files and corrupt them. Avoid that affected mode or follow
-upstream guidance if you need it.
+Upstream VG `1.75.1` fixes the VG `1.75.0` issue where `vg giraffe` haplotype
+sampling kmer counting could write KMC log messages into alignment output
+files.
 
 The smoke test constructs a tiny FASTA/VCF graph, compresses and indexes the VCF
 with `bgzip`/`tabix`, builds a VG graph, reports graph stats, converts to GFA,
@@ -150,4 +149,4 @@ as Giraffe, GBZ, VG Call, or graph construction workflows.
 
 - Homepage and source: <https://github.com/vgteam/vg>
 - Usage overview: <https://github.com/vgteam/vg#usage>
-- Release notes: <https://github.com/vgteam/vg/releases/tag/v1.75.0>
+- Release notes: <https://github.com/vgteam/vg/releases/tag/v1.75.1>

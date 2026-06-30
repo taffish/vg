@@ -1,4 +1,4 @@
-vg 1.75.0-r1
+vg 1.75.1-r1
 
 Purpose:
   VG constructs, indexes, maps, genotypes, calls, and converts variation
@@ -69,19 +69,18 @@ Platform and resources:
   index construction.
 
 Boundaries:
-  This app packages the official upstream VG 1.75.0 runtime image with TAFFISH
+  This app packages the official upstream VG 1.75.1 runtime image with TAFFISH
   metadata, docs, and smoke checks. It does not bundle reference genomes,
   sample data, prebuilt pangenome indexes, or workflow-specific databases.
-  Upstream notes a known VG 1.75.0 issue where one single-command haplotype
-  sampling mode of vg giraffe can write KMC logs into alignment output files.
-  Avoid that affected mode or follow upstream guidance when using it.
+  Upstream VG 1.75.1 fixes a VG 1.75.0 issue where vg giraffe haplotype
+  sampling kmer counting could write KMC logs into alignment output files.
   The smoke test uses a tiny synthetic FASTA/VCF graph and does not validate
   production-scale mapping accuracy, calling quality, or graph biology.
 
 Detailed documentation:
   https://github.com/vgteam/vg
   https://github.com/vgteam/vg#usage
-  https://github.com/vgteam/vg/releases/tag/v1.75.0
+  https://github.com/vgteam/vg/releases/tag/v1.75.1
 
 Wrapper options:
   taf-vg --help       Show this TAFFISH help.
