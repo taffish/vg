@@ -4,7 +4,14 @@ TAFFISH tool app for [VG](https://github.com/vgteam/vg), the variation graph
 toolkit for constructing, indexing, mapping, genotyping, calling, and converting
 variation graphs and pangenome graph data.
 
-This package wraps upstream VG `1.75.1` and publishes it as:
+Package identity:
+
+- TAFFISH app: `vg`
+- Command: `taf-vg`
+- TAFFISH version: `1.76.0-r1`
+- Upstream release: [VG v1.76.0](https://github.com/vgteam/vg/releases/tag/v1.76.0)
+
+This package wraps upstream VG `1.76.0` and publishes it as:
 
 ```bash
 taf-vg vg version
@@ -16,13 +23,12 @@ taf-vg vg help
 - `vg`: upstream VG command suite.
 - `samtools`, `bgzip`, `tabix`: helper commands available in the official
   upstream runtime image and useful for FASTA/VCF preparation.
-- TAFFISH metadata, terminal help, and a tiny offline smoke fixture.
+- TAFFISH metadata, terminal help, a synthetic graph smoke, and the tiny GFAz
+  fixture shipped in the upstream VG source tree.
 
 The container is based on the official upstream image
-`quay.io/vgteam/vg:v1.75.1` pinned by the multi-architecture manifest digest
-`sha256:ff1269af57a140b4fc044145681e16d9d0be0d156156fe844c40018725a3f567`.
-Bioconda was not used for this release because its published VG recipe lagged
-behind the current upstream VG release at packaging time.
+`quay.io/vgteam/vg:v1.76.0` pinned by the multi-architecture manifest digest
+`sha256:fe3a0d6dcd5a0544de862b06b50c9744a5aed769069da61d62b27c30d4b14e10`.
 
 ## Basic Usage
 
@@ -49,6 +55,13 @@ taf-vg vg stats -z graph.vg
 taf-vg vg view -g graph.vg > graph.gfa
 taf-vg vg index -x graph.xg graph.vg
 taf-vg vg paths -x graph.xg -L
+```
+
+Read a GFAz graph introduced in VG 1.76.0:
+
+```bash
+taf-vg vg stats -z graph.gfaz
+taf-vg vg convert -g -f graph.gfaz > graph.gfa
 ```
 
 Build indexes for a Giraffe workflow:
@@ -116,14 +129,26 @@ packaged CPU runtime. Whole-genome pangenome workflows can still require large
 amounts of memory, CPU time, and temporary disk space, especially during GCSA,
 GBWT/GBZ, Giraffe, and variant-calling workflows.
 
-Upstream VG `1.75.1` fixes the VG `1.75.0` issue where `vg giraffe` haplotype
-sampling kmer counting could write KMC log messages into alignment output
-files.
+VG 1.76.0 adds GFAz input, `vg deconstruct --cluster-min-len`, minimizer fixes,
+and stricter Giraffe option validation. Upstream intentionally removed the
+deprecated `vg sift`, `vg join`, `vg explode`, and `vg msga` commands, as well
+as `vg paths -N` and `vg circularize --describe`; their absence is not a
+TAFFISH packaging omission.
 
 The smoke test constructs a tiny FASTA/VCF graph, compresses and indexes the VCF
 with `bgzip`/`tabix`, builds a VG graph, reports graph stats, converts to GFA,
-builds an XG index, and lists embedded paths. It verifies packaging and basic
-runtime behavior, not biological correctness or production-scale performance.
+builds an XG index, lists embedded paths, and renders an SVG with `vg viz`. A
+separate smoke reads and converts the upstream tiny GFAz fixture. These checks
+verify packaging and basic runtime behavior, not biological correctness or
+production-scale performance.
+
+Local release builds measure about 808 MB for arm64 and 800 MB for amd64, only
+about 6.6 KB above the corresponding official base images. VG itself is
+statically linked, while the official image also supplies helper commands and
+runtime support used by established VG workflows. The TAFFISH layer adds only
+small docs and fixtures; no independent package manager environment or cache is
+added, and no clearly safe large deletion was identified without narrowing
+upstream functionality.
 
 ## Platforms
 
@@ -149,4 +174,4 @@ as Giraffe, GBZ, VG Call, or graph construction workflows.
 
 - Homepage and source: <https://github.com/vgteam/vg>
 - Usage overview: <https://github.com/vgteam/vg#usage>
-- Release notes: <https://github.com/vgteam/vg/releases/tag/v1.75.1>
+- Release notes: <https://github.com/vgteam/vg/releases/tag/v1.76.0>

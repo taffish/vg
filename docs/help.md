@@ -1,4 +1,4 @@
-vg 1.75.1-r1
+taf-vg 1.76.0-r1
 
 Purpose:
   VG constructs, indexes, maps, genotypes, calls, and converts variation
@@ -13,6 +13,8 @@ Usage:
   taf-vg vg index -x graph.xg graph.vg
   taf-vg vg stats -z graph.vg
   taf-vg vg view -g graph.vg > graph.gfa
+  taf-vg vg stats -z graph.gfaz
+  taf-vg vg convert -g -f graph.gfaz > graph.gfa
 
 Common workflows:
   taf-vg vg construct -r ref.fa -v variants.vcf.gz > graph.vg
@@ -51,7 +53,7 @@ Command-mode note:
 Inputs:
   FASTA/FAI      Reference sequences and samtools faidx indexes.
   VCF/VCF.GZ     Variant calls for graph construction and genotyping workflows.
-  GFA/GBZ/.vg    Graph interchange and native graph containers.
+  GFA/GFAz/GBZ   Graph interchange and compressed/native graph containers.
   FASTQ/BAM/GAM  Reads or graph alignments for mapping and calling workflows.
 
 Key outputs:
@@ -69,18 +71,19 @@ Platform and resources:
   index construction.
 
 Boundaries:
-  This app packages the official upstream VG 1.75.1 runtime image with TAFFISH
+  This app packages the official upstream VG 1.76.0 runtime image with TAFFISH
   metadata, docs, and smoke checks. It does not bundle reference genomes,
   sample data, prebuilt pangenome indexes, or workflow-specific databases.
-  Upstream VG 1.75.1 fixes a VG 1.75.0 issue where vg giraffe haplotype
-  sampling kmer counting could write KMC logs into alignment output files.
-  The smoke test uses a tiny synthetic FASTA/VCF graph and does not validate
-  production-scale mapping accuracy, calling quality, or graph biology.
+  VG 1.76.0 adds GFAz input and deconstruct --cluster-min-len. Upstream also
+  removed the deprecated sift, join, explode, and msga subcommands; their
+  absence is intentional. Independent smoke paths use a tiny synthetic
+  FASTA/VCF graph with SVG rendering and an upstream GFAz fixture. They do not
+  validate production-scale mapping accuracy, calling quality, or graph biology.
 
 Detailed documentation:
   https://github.com/vgteam/vg
   https://github.com/vgteam/vg#usage
-  https://github.com/vgteam/vg/releases/tag/v1.75.1
+  https://github.com/vgteam/vg/releases/tag/v1.76.0
 
 Wrapper options:
   taf-vg --help       Show this TAFFISH help.
