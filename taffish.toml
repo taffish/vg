@@ -1,7 +1,7 @@
 [package]
 name = "vg"
 kind = "tool"
-version = "1.76.0"
+version = "1.76.1"
 release = 1
 license = "Apache-2.0"
 main = "src/main.taf"
@@ -17,7 +17,7 @@ pipe = true
 command_mode = true
 
 [container]
-image = "ghcr.io/taffish/vg:1.76.0-r1"
+image = "ghcr.io/taffish/vg:1.76.1-r1"
 dockerfile = "docker/Dockerfile"
 build_platforms = "linux/amd64,linux/arm64"
 
@@ -25,7 +25,7 @@ build_platforms = "linux/amd64,linux/arm64"
 domain = "bio"
 categories = ["pangenome", "variation-graph", "graph-alignment", "genotyping", "variant-calling"]
 keywords = ["vg", "variation graph", "pangenome graph", "GFA", "GBZ", "XG", "GCSA2", "GAM", "giraffe", "genotyping", "variant calling", "graph construction"]
-description = "VG 1.76.0 command-line runtime for constructing, indexing, mapping, genotyping, calling, and converting variation graphs and pangenome graph data."
+description = "VG 1.76.1 command-line runtime for constructing, indexing, mapping, genotyping, calling, and converting variation graphs and pangenome graph data."
 
 [upstream]
 name = "vg"
@@ -33,9 +33,9 @@ type = "github"
 repo = "vgteam/vg"
 homepage = "https://github.com/vgteam/vg"
 manual = "https://github.com/vgteam/vg#usage"
-release_url = "https://github.com/vgteam/vg/releases/tag/v1.76.0"
-downloads = "quay.io/vgteam/vg:v1.76.0@sha256:fe3a0d6dcd5a0544de862b06b50c9744a5aed769069da61d62b27c30d4b14e10; https://github.com/vgteam/vg/releases/tag/v1.76.0"
-version = "1.76.0"
+release_url = "https://github.com/vgteam/vg/releases/tag/v1.76.1"
+downloads = "quay.io/vgteam/vg:v1.76.1@sha256:e62d087d6ee64a302f1703046bc556892b530163b0dc44824b291571e8f11d9b; https://github.com/vgteam/vg/releases/tag/v1.76.1"
+version = "1.76.1"
 license = "MIT"
 citation = "Garrison et al. 2018, Variation graph toolkit improves read mapping by representing genetic variation in the reference, Nature Biotechnology"
 doi = "10.1038/nbt.4227"
@@ -46,4 +46,4 @@ strip_prefix = "v"
 backend = "docker"
 timeout = 300
 exist = ["vg", "samtools", "bgzip", "tabix", "ldd", "bash", "grep", "sed", "sha256sum"]
-test = ["test \"$(vg version 2>&1 | sed -n '1p')\" = 'vg version v1.76.0 \"Chomper\"' && grep -Fx 'tag=v1.76.0' /opt/vg/share/doc/vg/source.txt >/dev/null && grep -Fx 'tag_commit=e2547e979d86a446e8151c5489850b6176a82c0c' /opt/vg/share/doc/vg/source.txt >/dev/null && grep -Fx 'upstream_manifest=sha256:fe3a0d6dcd5a0544de862b06b50c9744a5aed769069da61d62b27c30d4b14e10' /opt/vg/share/doc/vg/source.txt >/dev/null", "{ vg help 2>&1 || true; } | grep -F 'usage: vg <command> [options]' >/dev/null && { vg convert --help 2>&1 || true; } | grep -F 'GFAZ format' >/dev/null && { vg deconstruct --help 2>&1 || true; } | grep -F -- '--cluster-min-len' >/dev/null", "for cmd in sift join; do if vg \"$cmd\" --help > /tmp/taf-vg-removed-command.txt 2>&1; then exit 1; fi; grep -F \"command $cmd not found\" /tmp/taf-vg-removed-command.txt >/dev/null; done; for cmd in explode msga; do if vg \"$cmd\" --help > /tmp/taf-vg-removed-command.txt 2>&1; then exit 1; fi; grep -F \"$cmd has been removed\" /tmp/taf-vg-removed-command.txt >/dev/null; done", "samtools --version 2>&1 | grep -F 'samtools 1.22.1' >/dev/null && { ldd \"$(command -v vg)\" > /tmp/taf-vg-ldd.txt 2>&1 || true; } && grep -F 'not a dynamic executable' /tmp/taf-vg-ldd.txt >/dev/null", "/opt/vg/share/testdata/vg-smoke.sh /tmp/taf-vg-index-smoke-$$", "/opt/vg/share/testdata/vg-gfaz-smoke.sh /tmp/taf-vg-gfaz-smoke-$$"]
+test = ["test \"$(vg version 2>&1 | sed -n '1p')\" = 'vg version v1.76.1' && grep -Fx 'tag=v1.76.1' /opt/vg/share/doc/vg/source.txt >/dev/null && grep -Fx 'tag_commit=d828cc372a8b7ee5c34e0e11d37ad63164313702' /opt/vg/share/doc/vg/source.txt >/dev/null && grep -Fx 'upstream_manifest=sha256:e62d087d6ee64a302f1703046bc556892b530163b0dc44824b291571e8f11d9b' /opt/vg/share/doc/vg/source.txt >/dev/null && grep -Fx 'github_release_prerelease_at_packaging=true' /opt/vg/share/doc/vg/source.txt >/dev/null && grep -Fx 'upstream_license_sha256=7c3fe1c48ef0594c8d6728353d9325b5f4335eceea5bda3734820d7478bdeaef' /opt/vg/share/doc/vg/source.txt >/dev/null && printf '%s  %s\n' '7c3fe1c48ef0594c8d6728353d9325b5f4335eceea5bda3734820d7478bdeaef' /opt/vg/share/licenses/vg/LICENSE | sha256sum -c - >/dev/null", "{ vg help 2>&1 || true; } | grep -F 'usage: vg <command> [options]' >/dev/null && { vg convert --help 2>&1 || true; } | grep -F 'GFAZ format' >/dev/null && { vg deconstruct --help 2>&1 || true; } | grep -F -- '--cluster-min-len' >/dev/null", "for cmd in sift join; do if vg \"$cmd\" --help > /tmp/taf-vg-removed-command.txt 2>&1; then exit 1; fi; grep -F \"command $cmd not found\" /tmp/taf-vg-removed-command.txt >/dev/null; done; for cmd in explode msga; do if vg \"$cmd\" --help > /tmp/taf-vg-removed-command.txt 2>&1; then exit 1; fi; grep -F \"$cmd has been removed\" /tmp/taf-vg-removed-command.txt >/dev/null; done", "samtools --version 2>&1 | grep -F 'samtools 1.22.1' >/dev/null && { ldd \"$(command -v vg)\" > /tmp/taf-vg-ldd.txt 2>&1 || true; } && grep -F 'not a dynamic executable' /tmp/taf-vg-ldd.txt >/dev/null", "/opt/vg/share/testdata/vg-smoke.sh /tmp/taf-vg-index-smoke-$$", "/opt/vg/share/testdata/vg-gfaz-smoke.sh /tmp/taf-vg-gfaz-smoke-$$"]

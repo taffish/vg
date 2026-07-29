@@ -1,4 +1,4 @@
-taf-vg 1.76.0-r1
+taf-vg 1.76.1-r1
 
 Purpose:
   VG constructs, indexes, maps, genotypes, calls, and converts variation
@@ -71,19 +71,23 @@ Platform and resources:
   index construction.
 
 Boundaries:
-  This app packages the official upstream VG 1.76.0 runtime image with TAFFISH
+  This app packages the official upstream VG 1.76.1 runtime image with TAFFISH
   metadata, docs, and smoke checks. It does not bundle reference genomes,
   sample data, prebuilt pangenome indexes, or workflow-specific databases.
-  VG 1.76.0 adds GFAz input and deconstruct --cluster-min-len. Upstream also
-  removed the deprecated sift, join, explode, and msga subcommands; their
-  absence is intentional. Independent smoke paths use a tiny synthetic
-  FASTA/VCF graph with SVG rendering and an upstream GFAz fixture. They do not
-  validate production-scale mapping accuracy, calling quality, or graph biology.
+  VG 1.76.1 restores its bundled elfutils static build, corrects gref VCF LV
+  semantics for vcfbub, and omits unused contigs from generated VCF headers.
+  It retains GFAz input and deconstruct --cluster-min-len from 1.76.0. Upstream
+  also removed the deprecated sift, join, explode, and msga subcommands in
+  1.76.0; their absence is intentional. GitHub marks v1.76.1 as a prerelease at
+  packaging time, while the official tag, assets, and two image architectures
+  are published. Independent smoke paths use a tiny synthetic FASTA/VCF graph
+  with SVG rendering and an upstream GFAz fixture. They do not validate
+  production-scale mapping accuracy, calling quality, or graph biology.
 
 Detailed documentation:
   https://github.com/vgteam/vg
   https://github.com/vgteam/vg#usage
-  https://github.com/vgteam/vg/releases/tag/v1.76.0
+  https://github.com/vgteam/vg/releases/tag/v1.76.1
 
 Wrapper options:
   taf-vg --help       Show this TAFFISH help.

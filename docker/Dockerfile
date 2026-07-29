@@ -1,13 +1,14 @@
-ARG VG_VERSION=1.76.0
-ARG VG_TAG_COMMIT=e2547e979d86a446e8151c5489850b6176a82c0c
-ARG VG_UPSTREAM_IMAGE=quay.io/vgteam/vg@sha256:fe3a0d6dcd5a0544de862b06b50c9744a5aed769069da61d62b27c30d4b14e10
+ARG VG_VERSION=1.76.1
+ARG VG_TAG_COMMIT=d828cc372a8b7ee5c34e0e11d37ad63164313702
+ARG VG_UPSTREAM_IMAGE=quay.io/vgteam/vg@sha256:e62d087d6ee64a302f1703046bc556892b530163b0dc44824b291571e8f11d9b
 FROM ${VG_UPSTREAM_IMAGE}
 
 ARG VG_VERSION
 ARG VG_TAG_COMMIT
 ARG VG_UPSTREAM_IMAGE
-ARG VG_UPSTREAM_AMD64_MANIFEST=sha256:fc176981cd4717ad37de4ea63aa3d3cef07ec5022ffb8c273f770d615adc95a3
-ARG VG_UPSTREAM_ARM64_MANIFEST=sha256:3235b2cc44b94962ce89b84f2d752d90fb943f8b1c3c38738690118d27f65934
+ARG VG_UPSTREAM_AMD64_MANIFEST=sha256:cbe84105da643a83d82d5e1e4dc0c69ad8862c8c084fe2c8b21927cc15cb2a9e
+ARG VG_UPSTREAM_ARM64_MANIFEST=sha256:3375f5497cc4191b5fdcd10dbd8fba455097a531f6fea03cdeb3303204d9e00e
+ARG VG_LICENSE_SHA256=7c3fe1c48ef0594c8d6728353d9325b5f4335eceea5bda3734820d7478bdeaef
 ARG GFAZ_FIXTURE_SHA256=809752f1e0569842e8a44620411c9b897c2bcc606acf7baa0b1b8a2f0e60185e
 
 USER root
@@ -19,8 +20,13 @@ LABEL org.opencontainers.image.title="TAFFISH vg" \
       org.opencontainers.image.version="${VG_VERSION}" \
       org.opencontainers.image.licenses="Apache-2.0 AND MIT"
 
+COPY docker/licenses/vg-LICENSE /tmp/vg-LICENSE
+
 RUN set -eux; \
     mkdir -p /opt/vg/share/doc/vg /opt/vg/share/licenses/vg /opt/vg/share/testdata; \
+    printf '%s  %s\n' "${VG_LICENSE_SHA256}" /tmp/vg-LICENSE | sha256sum -c -; \
+    install -m 0644 /tmp/vg-LICENSE /opt/vg/share/licenses/vg/LICENSE; \
+    rm -f /tmp/vg-LICENSE; \
     ln -sf /vg/bin/vg /usr/local/bin/vg; \
     { \
       printf '%s\n' "version=${VG_VERSION}"; \
@@ -32,12 +38,15 @@ RUN set -eux; \
       printf '%s\n' "upstream_arm64_manifest=${VG_UPSTREAM_ARM64_MANIFEST}"; \
       printf '%s\n' "source=https://github.com/vgteam/vg"; \
       printf '%s\n' "release=https://github.com/vgteam/vg/releases/tag/v${VG_VERSION}"; \
+      printf '%s\n' "github_release_prerelease_at_packaging=true"; \
+      printf '%s\n' "upstream_license_sha256=${VG_LICENSE_SHA256}"; \
       printf '%s\n' "gfaz_fixture_source=https://raw.githubusercontent.com/vgteam/vg/${VG_TAG_COMMIT}/test/tiny/tiny.gfaz"; \
       printf '%s\n' "gfaz_fixture_sha256=${GFAZ_FIXTURE_SHA256}"; \
     } > /opt/vg/share/doc/vg/source.txt; \
     { \
       printf '%s\n' "VG and its packaged tiny GFAz test fixture are distributed upstream under the MIT license."; \
-      printf '%s\n' "See https://github.com/vgteam/vg/blob/${VG_TAG_COMMIT}/LICENSE for the upstream license text."; \
+      printf '%s\n' "The exact upstream top-level license notice is installed as /opt/vg/share/licenses/vg/LICENSE."; \
+      printf '%s\n' "Source: https://github.com/vgteam/vg/blob/${VG_TAG_COMMIT}/LICENSE"; \
       printf '%s\n' "This TAFFISH wrapper metadata and documentation are distributed under Apache-2.0."; \
     } > /opt/vg/share/licenses/vg/LICENSE-note.txt
 
@@ -122,13 +131,14 @@ EOF
 # rendering, and GFAz paths run as independent runtime/index smoke tests.
 RUN set -eux; \
     chmod 0755 /opt/vg/share/testdata/vg-smoke.sh /opt/vg/share/testdata/vg-gfaz-smoke.sh; \
-    test "$(vg version 2>&1 | sed -n '1p')" = "vg version v${VG_VERSION} \"Chomper\""; \
+    test "$(vg version 2>&1 | sed -n '1p')" = "vg version v${VG_VERSION}"; \
     { vg help 2>&1 || true; } | grep -F "usage: vg <command> [options]" >/dev/null; \
     { vg convert --help 2>&1 || true; } | grep -F "GFAZ format" >/dev/null; \
     { vg deconstruct --help 2>&1 || true; } | grep -F -- "--cluster-min-len" >/dev/null; \
     command -v samtools >/dev/null; \
     command -v bgzip >/dev/null; \
     command -v tabix >/dev/null; \
+    printf '%s  %s\n' "${VG_LICENSE_SHA256}" /opt/vg/share/licenses/vg/LICENSE | sha256sum -c -; \
     printf '%s  %s\n' "${GFAZ_FIXTURE_SHA256}" /opt/vg/share/testdata/tiny.gfaz | sha256sum -c -; \
     ldd "$(command -v vg)" > /tmp/taf-vg-ldd.txt 2>&1 || true; \
     grep -F "not a dynamic executable" /tmp/taf-vg-ldd.txt >/dev/null; \
