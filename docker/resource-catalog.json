@@ -1,0 +1,22 @@
+{
+  "hprc-v1.0-mc-grch38-gfa": {
+    "kind": "gfa-gzip", "assembly": "HPRC-v1.0-minigraph-cactus-GRCh38",
+    "bytes": 11947915887,
+    "sha256": "1619a259e21172328890ab41f39ac993114c3397d18802bbac5ef1e6cf991cdf",
+    "url": "https://human-pangenomics.s3.us-west-2.amazonaws.com/pangenomes/freeze/freeze1/minigraph-cactus/hprc-v1.0-mc-grch38.gfa.gz",
+    "catalog_commit": "c9a487dc5745a7d26b64f8252fff4df4b45515db",
+    "license": "HPRC Public Domain data; ethical and attribution guidance applies",
+    "license_url": "https://humanpangenome.org/data-use/",
+    "attribution": "Human Pangenome Reference Consortium and original data contributors"
+  },
+  "hprc-v1.0-mc-chm13-gfa": {
+    "kind": "gfa-gzip", "assembly": "HPRC-v1.0-minigraph-cactus-CHM13",
+    "bytes": 12126629594,
+    "sha256": "555c940784c012232f9541d732619d247c9eb8bd0dd3944f36eb1d4e717333b7",
+    "url": "https://human-pangenomics.s3.us-west-2.amazonaws.com/pangenomes/freeze/freeze1/minigraph-cactus/hprc-v1.0-mc-chm13.gfa.gz",
+    "catalog_commit": "c9a487dc5745a7d26b64f8252fff4df4b45515db",
+    "license": "HPRC Public Domain data; ethical and attribution guidance applies",
+    "license_url": "https://humanpangenome.org/data-use/",
+    "attribution": "Human Pangenome Reference Consortium and original data contributors"
+  }
+}

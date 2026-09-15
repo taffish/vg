@@ -1,96 +1,85 @@
-taf-vg 1.76.1-r1
+vg 1.77.0-r1
 
 Purpose:
-  VG constructs, indexes, maps, genotypes, calls, and converts variation
-  graphs and pangenome graph data. It supports graph formats and indexes used
-  by VG workflows, including .vg, GFA, GBZ, XG, GCSA2, GAM, and related files.
+  VG variation-graph CLI, plus an optional Sequence Tube Map browser GUI.
+  CLI remains the default; start the GUI only when you need interactive viewing.
 
 Usage:
-  taf-vg vg
   taf-vg vg help
   taf-vg vg version
-  taf-vg vg construct -r ref.fa -v variants.vcf.gz > graph.vg
-  taf-vg vg index -x graph.xg graph.vg
-  taf-vg vg stats -z graph.vg
-  taf-vg vg view -g graph.vg > graph.gfa
-  taf-vg vg stats -z graph.gfaz
-  taf-vg vg convert -g -f graph.gfaz > graph.gfa
+  taf-vg vg convert --help
+  taf-vg vg giraffe --help
+  Use "taf-vg vg SUBCOMMAND ...", not "taf-vg SUBCOMMAND ...".
 
-Common workflows:
-  taf-vg vg construct -r ref.fa -v variants.vcf.gz > graph.vg
-  taf-vg vg autoindex --workflow giraffe -r ref.fa -v variants.vcf.gz -p idx
-  taf-vg vg giraffe -Z idx.giraffe.gbz -m idx.min -d idx.dist -f reads.fq > aln.gam
-  taf-vg vg pack -x graph.xg -g aln.gam -o aln.pack
-  taf-vg vg call graph.xg -k aln.pack > calls.vcf
-  taf-vg vg deconstruct graph.gbz -P refpath > graph.vcf
+Common tasks (run in a writable project directory):
+  taf-vg vg construct -r reference.fa -v variants.vcf.gz > graph.vg
+  taf-vg vg convert -g -x graph.gfa > graph.xg
+  taf-vg vg stats -z graph.xg
+  taf-vg vg paths -x graph.xg -L
+  taf-vg vg viz -x graph.xg -o graph.svg
+  Inputs: matching FASTA/VCF coordinates, graph paths and compatible indexes.
+  Outputs: graph/index files, path lists, or an SVG; use explicit output paths.
+  For map/call tasks, read the subcommand help and keep all indexes from one graph.
 
-Packaged commands:
-  vg        Upstream VG command suite.
-  samtools  Helper from the official upstream runtime image.
-  bgzip     VCF compression helper from the official upstream runtime image.
-  tabix     VCF indexing helper from the official upstream runtime image.
+Open the GUI (built-in synthetic graph; no dataset download):
+  Docker:
+    TAFFISH_CONTAINER_BACKEND=docker TAFFISH_VG_GUI=1 taf-vg vg-tubemap
+  Podman:
+    TAFFISH_CONTAINER_BACKEND=podman TAFFISH_VG_GUI=1 taf-vg vg-tubemap
+  Apptainer (native Linux):
+    TAFFISH_CONTAINER_BACKEND=apptainer TAFFISH_VG_GUI=1 taf-vg vg-tubemap
+  Open http://127.0.0.1:3000 after "ready". Ctrl-C stops and removes the session.
+  Choose the synthetic graph, adjust the region, then use Download Image for SVG.
+  Add --data-dir "'$PWD/graphs'" to select your physical graph/index directory.
+  Uploads are limited to 5 MB; use --data-dir for larger XG/GBZ/graph/GAM files.
+  Uploaded files and temporary results disappear when the session stops.
+  Use TAFFISH_VG_GUI_PORT=8300 with TAFFISH_VG_GUI=1 for a different host port.
+  Docker/Podman map that host port to container 3000; do not override --port.
+  Apptainer listens directly on the selected host port; no Docker-style -p.
+  Remote host: ssh -N -L 3000:127.0.0.1:3000 USER@HOST, then open localhost.
+  No login/TLS: keep it private. Remote URL downloads are disabled unless
+  --allow-remote is explicitly given for trusted URLs. Do not expose publicly.
 
-Selected VG subcommands:
-  construct    Build a graph from FASTA and optional VCF input.
-  autoindex    Build mapping/calling indexes from interchange formats.
-  index        Build XG, GCSA2, GBWT/GBZ, minimizer, or related indexes.
-  giraffe      Fast haplotype-aware read mapping.
-  map/mpmap    MEM-based and splice-aware mapping modes.
-  pack         Convert alignments to compact coverage indexes.
-  call         Genotype or call variants from graph-alignment evidence.
-  deconstruct  Convert graph variation back to VCF.
-  stats/view   Inspect and convert graph or alignment files.
+Install one shared GFA resource (network and substantial disk space required):
+  taf-vg vg-resources list
+  base="$HOME/.local/share/taffish/resources/vg"; mkdir -p "$base"
+  TAFFISH_VG_RESOURCE_INSTALL_ROOT="$base" taf-vg vg-resources install \
+    --resource hprc-v1.0-mc-grch38-gfa --resource-root /resource-install --dry-run
+  Remove --dry-run to download that member (~12 GB; allow ~24 GB free).
+  Select Docker, Podman or Apptainer with TAFFISH_CONTAINER_BACKEND as above.
+  An administrator may install once into /usr/local/share/taffish/resources/vg.
+  Ordinary users reuse the readable member without downloading or writing it.
+  The catalog is HPRC v1.0 raw GFA, not the latest HPRC release or ready VG indexes.
 
-Command-mode note:
-  VG uses subcommands such as construct, index, stats, call, and giraffe.
-  Prefer:
-    taf-vg vg construct ...
-  to run the explicit vg executable inside the container. Do not use
-  taf-vg construct ... or taf-vg -- construct ... because TAFFISH command mode
-  may treat construct as a container executable name. VG's main help is printed
-  by vg help or vg with no subcommand; upstream vg --help is not the main help.
+Use an installed member (all three backends):
+  export TAFFISH_VG_RESOURCE_ID=hprc-v1.0-mc-grch38-gfa
+  taf-vg vg-resources verify /vg-resource
+  taf-vg sh -c "'gzip -dc /vg-resource/graph.gfa.gz | vg convert -g -x -'" > graph.xg
+  Personal, /usr/local/share/taffish and /opt/taffish resource paths are searched.
+  TAFFISH_VG_RESOURCE_PATH=/physical/member overrides discovery.
+  TAFFISH_VG_RESOURCE_AUTO_MOUNT=0 disables it; unset the ID when not needed.
+  Selection validates hashes, which can take time for a large graph.
+  Manual read-only bind fallback (choose one; auto mount disabled):
+  Docker:    TAFFISH_DOCKER_RUN_ARGS='-v /physical/member:/vg-resource:ro'
+  Podman:    TAFFISH_PODMAN_RUN_ARGS='-v /physical/member:/vg-resource:ro'
+  Apptainer: TAFFISH_APPTAINER_RUN_ARGS='--bind /physical/member:/vg-resource:ro'
+  Export the matching variable before running taf-vg. Keep derived indexes and
+  outputs in writable project storage, not in the shared resource.
+  Custom compressed GFA: see "taf-vg vg-resources install --help".
 
-Inputs:
-  FASTA/FAI      Reference sequences and samtools faidx indexes.
-  VCF/VCF.GZ     Variant calls for graph construction and genotyping workflows.
-  GFA/GFAz/GBZ   Graph interchange and compressed/native graph containers.
-  FASTQ/BAM/GAM  Reads or graph alignments for mapping and calling workflows.
+Immediate notes:
+  For a space-containing argument, preserve inner quotes: "'output graph.xg'".
+  The same quoting is required for sh -c scripts; these paths cannot contain '.
+  Native Linux amd64 and arm64; Apptainer requires Linux, not macOS.
+  GPU/device access is not needed. GUI bind paths must contain trusted files,
+  without symlinks. Never serve private genomic data to untrusted clients.
+  VG 1.77 surject requires -i for paired input or -U for forced unpaired input.
+  giraffe --min-chains became --target-alignment-attempts; chain was removed.
+  pack/call must use the same graph and indexes, not merely matching filenames.
 
-Key outputs:
-  .vg, GFA, GBZ  Graph containers and interchange files.
-  .xg, .gcsa     Query and mapping indexes.
-  .gam, .gaf     Graph alignment outputs.
-  .pack          Coverage indexes for calling.
-  VCF/BCF        Variant calling or graph deconstruction outputs.
-
-Platform and resources:
-  Native container builds are requested for linux/amd64 and linux/arm64 from
-  the official upstream VG image. No external database, network service, GPU,
-  or license server is required by the packaged CPU runtime. Memory, CPU, and
-  disk use can be very large for whole-genome pangenome graphs and GCSA/GBWT
-  index construction.
-
-Boundaries:
-  This app packages the official upstream VG 1.76.1 runtime image with TAFFISH
-  metadata, docs, and smoke checks. It does not bundle reference genomes,
-  sample data, prebuilt pangenome indexes, or workflow-specific databases.
-  VG 1.76.1 restores its bundled elfutils static build, corrects gref VCF LV
-  semantics for vcfbub, and omits unused contigs from generated VCF headers.
-  It retains GFAz input and deconstruct --cluster-min-len from 1.76.0. Upstream
-  also removed the deprecated sift, join, explode, and msga subcommands in
-  1.76.0; their absence is intentional. GitHub marks v1.76.1 as a prerelease at
-  packaging time, while the official tag, assets, and two image architectures
-  are published. Independent smoke paths use a tiny synthetic FASTA/VCF graph
-  with SVG rendering and an upstream GFAz fixture. They do not validate
-  production-scale mapping accuracy, calling quality, or graph biology.
-
-Detailed documentation:
-  https://github.com/vgteam/vg
-  https://github.com/vgteam/vg#usage
-  https://github.com/vgteam/vg/releases/tag/v1.76.1
-
-Wrapper options:
-  taf-vg --help       Show this TAFFISH help.
-  taf-vg --version    Show TAFFISH wrapper version.
-  taf-vg --compile    Compile the TAFFISH wrapper.
-  taf-vg vg help      Show upstream VG command overview.
+More help:
+  taf-vg vg-tubemap --help
+  taf-vg --help       TAFFISH usage help
+  taf-vg --version    Wrapper version, not the VG runtime version
+  taf-vg --compile    Generated wrapper shell
+  https://github.com/taffish/vg

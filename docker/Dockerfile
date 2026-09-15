@@ -1,150 +1,94 @@
-ARG VG_VERSION=1.76.1
-ARG VG_TAG_COMMIT=d828cc372a8b7ee5c34e0e11d37ad63164313702
-ARG VG_UPSTREAM_IMAGE=quay.io/vgteam/vg@sha256:e62d087d6ee64a302f1703046bc556892b530163b0dc44824b291571e8f11d9b
-FROM ${VG_UPSTREAM_IMAGE}
-
-ARG VG_VERSION
-ARG VG_TAG_COMMIT
-ARG VG_UPSTREAM_IMAGE
-ARG VG_UPSTREAM_AMD64_MANIFEST=sha256:cbe84105da643a83d82d5e1e4dc0c69ad8862c8c084fe2c8b21927cc15cb2a9e
-ARG VG_UPSTREAM_ARM64_MANIFEST=sha256:3375f5497cc4191b5fdcd10dbd8fba455097a531f6fea03cdeb3303204d9e00e
-ARG VG_LICENSE_SHA256=7c3fe1c48ef0594c8d6728353d9325b5f4335eceea5bda3734820d7478bdeaef
-ARG GFAZ_FIXTURE_SHA256=809752f1e0569842e8a44620411c9b897c2bcc606acf7baa0b1b8a2f0e60185e
-
+ARG VG_VERSION=1.77.0
+ARG VG_UPSTREAM_IMAGE=quay.io/vgteam/vg@sha256:31edee2fa9386d5c47088d303a97a14a803f7446a6d9b0bdc469310a1b94da5c
+ARG NODE_IMAGE=mirror.gcr.io/library/node@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5
+FROM ${NODE_IMAGE} AS node
+FROM ${VG_UPSTREAM_IMAGE} AS gui-build
 USER root
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-
-LABEL org.opencontainers.image.title="TAFFISH vg" \
-      org.opencontainers.image.description="VG ${VG_VERSION} runtime packaged for TAFFISH" \
-      org.opencontainers.image.source="https://github.com/vgteam/vg" \
-      org.opencontainers.image.version="${VG_VERSION}" \
-      org.opencontainers.image.licenses="Apache-2.0 AND MIT"
-
-COPY docker/licenses/vg-LICENSE /tmp/vg-LICENSE
-
+COPY --from=node /usr/local/ /usr/local/
+# Locked websocket addons need native compilation where prebuilt binaries are absent.
+# Compilers stay in the builder; use Node's matching local headers.
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
+    && rm -rf /var/lib/apt/lists/*
+ENV npm_config_nodedir=/usr/local
+ARG TUBEMAP_COMMIT=33b7a7e5df9f8052974ef8e6c689a031dac6e2c9
+ARG TUBEMAP_SHA256=a133a4d79dafafce6f67d0ea8dd90ab11f8ac893c63deed401c8d7a924df9b1f
+WORKDIR /build
 RUN set -eux; \
-    mkdir -p /opt/vg/share/doc/vg /opt/vg/share/licenses/vg /opt/vg/share/testdata; \
-    printf '%s  %s\n' "${VG_LICENSE_SHA256}" /tmp/vg-LICENSE | sha256sum -c -; \
-    install -m 0644 /tmp/vg-LICENSE /opt/vg/share/licenses/vg/LICENSE; \
-    rm -f /tmp/vg-LICENSE; \
+    curl -fL --retry 3 --connect-timeout 30 --max-time 1800 \
+      "https://codeload.github.com/vgteam/sequenceTubeMap/tar.gz/${TUBEMAP_COMMIT}" -o tubemap.tar.gz; \
+    echo "${TUBEMAP_SHA256}  tubemap.tar.gz" | sha256sum -c -; \
+    mkdir tubemap; tar -xzf tubemap.tar.gz --strip-components=1 -C tubemap
+COPY docker/prepare-tubemap.py /build/
+RUN python3 /build/prepare-tubemap.py
+WORKDIR /build/tubemap
+# The upstream lockfile and patch-package patch are preserved, not npm update.
+# Front-end compilation is not a browser/rendering or graph-analysis smoke.
+RUN npm ci --no-audit --no-fund && GENERATE_SOURCEMAP=false npm run build
+COPY docker/package-tubemap.py /build/
+RUN python3 /build/package-tubemap.py
+
+FROM ${VG_UPSTREAM_IMAGE} AS source-material
+USER root
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+ARG VG_VERSION
+ARG VG_SOURCE_SHA256=5e875e1a75c01cf52f33b57d3e937a770abbb3f3239509bef214278815424e22
+RUN set -eux; \
+    mkdir -p /out/sources /out/licenses/vg-dependencies /unpack; \
+    curl -fL --retry 3 --connect-timeout 30 --max-time 1800 \
+      "https://github.com/vgteam/vg/releases/download/v${VG_VERSION}/vg-v${VG_VERSION}.tar.gz" \
+      -o /out/sources/vg-v${VG_VERSION}.tar.gz; \
+    echo "${VG_SOURCE_SHA256}  /out/sources/vg-v${VG_VERSION}.tar.gz" | sha256sum -c -; \
+    tar -xzf /out/sources/vg-v${VG_VERSION}.tar.gz -C /unpack --strip-components=1
+COPY docker/collect-vg-notices.py /unpack/
+RUN python3 /unpack/collect-vg-notices.py
+
+FROM ${VG_UPSTREAM_IMAGE}
+ARG VG_VERSION
+ARG VG_UPSTREAM_IMAGE
+ARG VG_TAG_COMMIT=02244e42aac24a8375d71e7c3c7f07817921eab1
+USER root
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+LABEL org.opencontainers.image.title="TAFFISH vg with Sequence Tube Map" \
+      org.opencontainers.image.source="https://github.com/taffish/vg" \
+      org.opencontainers.image.version="${VG_VERSION}-r1" \
+      org.opencontainers.image.licenses="See /opt/vg/share/licenses and /opt/vg/tubemap/licenses"
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+COPY --from=node /usr/local/LICENSE /opt/vg/share/licenses/node/LICENSE
+COPY --from=gui-build /out/tubemap /opt/vg/tubemap
+COPY --from=gui-build /build/tubemap.tar.gz /opt/vg/share/sources/sequenceTubeMap-33b7a7e.tar.gz
+COPY --from=source-material /out/ /opt/vg/share/
+COPY docker/licenses/vg-LICENSE /opt/vg/share/licenses/vg/LICENSE
+COPY docker/testdata/ /opt/vg/share/testdata/
+COPY docker/tubemap-launch.mjs /opt/vg/tubemap/tubemap-launch.mjs
+COPY docker/vg-tubemap docker/vg-resources /usr/local/bin/
+COPY docker/resource-catalog.json /opt/vg/share/resource-catalog.json
+RUN set -eux; \
     ln -sf /vg/bin/vg /usr/local/bin/vg; \
-    { \
-      printf '%s\n' "version=${VG_VERSION}"; \
-      printf '%s\n' "tag=v${VG_VERSION}"; \
-      printf '%s\n' "tag_commit=${VG_TAG_COMMIT}"; \
-      printf '%s\n' "upstream_image=quay.io/vgteam/vg:v${VG_VERSION}"; \
-      printf '%s\n' "upstream_manifest=${VG_UPSTREAM_IMAGE#*@}"; \
-      printf '%s\n' "upstream_amd64_manifest=${VG_UPSTREAM_AMD64_MANIFEST}"; \
-      printf '%s\n' "upstream_arm64_manifest=${VG_UPSTREAM_ARM64_MANIFEST}"; \
-      printf '%s\n' "source=https://github.com/vgteam/vg"; \
-      printf '%s\n' "release=https://github.com/vgteam/vg/releases/tag/v${VG_VERSION}"; \
-      printf '%s\n' "github_release_prerelease_at_packaging=true"; \
-      printf '%s\n' "upstream_license_sha256=${VG_LICENSE_SHA256}"; \
-      printf '%s\n' "gfaz_fixture_source=https://raw.githubusercontent.com/vgteam/vg/${VG_TAG_COMMIT}/test/tiny/tiny.gfaz"; \
-      printf '%s\n' "gfaz_fixture_sha256=${GFAZ_FIXTURE_SHA256}"; \
-    } > /opt/vg/share/doc/vg/source.txt; \
-    { \
-      printf '%s\n' "VG and its packaged tiny GFAz test fixture are distributed upstream under the MIT license."; \
-      printf '%s\n' "The exact upstream top-level license notice is installed as /opt/vg/share/licenses/vg/LICENSE."; \
-      printf '%s\n' "Source: https://github.com/vgteam/vg/blob/${VG_TAG_COMMIT}/LICENSE"; \
-      printf '%s\n' "This TAFFISH wrapper metadata and documentation are distributed under Apache-2.0."; \
-    } > /opt/vg/share/licenses/vg/LICENSE-note.txt
-
-COPY docker/testdata/tiny.gfaz.b64 /tmp/tiny.gfaz.b64
-
+    chmod 0755 /usr/local/bin/vg-tubemap /usr/local/bin/vg-resources /opt/vg/share/testdata/*.sh; \
+    base64 -d /opt/vg/share/testdata/tiny.gfaz.b64 > /opt/vg/share/testdata/tiny.gfaz; \
+    echo '809752f1e0569842e8a44620411c9b897c2bcc606acf7baa0b1b8a2f0e60185e  /opt/vg/share/testdata/tiny.gfaz' | sha256sum -c -; \
+    echo '7c3fe1c48ef0594c8d6728353d9325b5f4335eceea5bda3734820d7478bdeaef  /opt/vg/share/licenses/vg/LICENSE' | sha256sum -c -; \
+    mkdir -p /opt/vg/tubemap/exampleData/taffish /opt/vg/share/doc/vg /vg-resource /resource-install; \
+    vg convert -t 1 -g -x /opt/vg/share/testdata/tiny.gfa > /opt/vg/tubemap/exampleData/taffish/tiny.xg; \
+    test -s /opt/vg/tubemap/exampleData/taffish/tiny.xg; \
+    printf '%s\n' "version=${VG_VERSION}" "tag=v${VG_VERSION}" "tag_commit=${VG_TAG_COMMIT}" \
+      "upstream_manifest=${VG_UPSTREAM_IMAGE#*@}" "github_release_prerelease_at_packaging=false" \
+      "upstream_amd64_manifest=sha256:ed04e303df1dcf320fa13e1fe71a984c72f0d84e8fbcc481e28b81bc1bcc5840" \
+      "upstream_arm64_manifest=sha256:11971a711893e5dc1d15b532b97f759e6f29aa95c805a59d60c7f998d3e374e7" \
+      "source_sha256=5e875e1a75c01cf52f33b57d3e937a770abbb3f3239509bef214278815424e22" \
+      "tubemap_commit=33b7a7e5df9f8052974ef8e6c689a031dac6e2c9" \
+      "tubemap_sha256=a133a4d79dafafce6f67d0ea8dd90ab11f8ac893c63deed401c8d7a924df9b1f" \
+      > /opt/vg/share/doc/vg/source.txt
+# Stable, small build probes only. Native runtime tests cover complete CLI and GUI.
 RUN set -eux; \
-    base64 -d /tmp/tiny.gfaz.b64 > /opt/vg/share/testdata/tiny.gfaz; \
-    printf '%s  %s\n' "${GFAZ_FIXTURE_SHA256}" /opt/vg/share/testdata/tiny.gfaz | sha256sum -c -; \
-    rm -f /tmp/tiny.gfaz.b64
-
-RUN cat > /opt/vg/share/testdata/vg-smoke.sh <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-tmp="${1:-/tmp/taf-vg-smoke}"
-rm -rf "$tmp"
-mkdir -p "$tmp"
-trap 'rm -rf "$tmp"' EXIT
-cd "$tmp"
-
-printf ">ref\nACGTTGCAACGT\n" > ref.fa
-samtools faidx ref.fa
-
-cat > tiny.vcf <<'VCF'
-##fileformat=VCFv4.2
-##contig=<ID=ref,length=12>
-#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
-ref	3	.	G	A	.	PASS	.
-VCF
-
-bgzip -c tiny.vcf > tiny.vcf.gz
-tabix -p vcf tiny.vcf.gz
-
-vg construct -r ref.fa -v tiny.vcf.gz > graph.vg
-test -s graph.vg
-
-vg stats -z graph.vg > graph.stats.tsv
-grep -F "nodes" graph.stats.tsv >/dev/null
-grep -F "edges" graph.stats.tsv >/dev/null
-
-vg view -g graph.vg > graph.gfa
-grep -F "VN:Z" graph.gfa >/dev/null
-grep -F $'S\t' graph.gfa >/dev/null
-
-vg index -x graph.xg graph.vg
-test -s graph.xg
-
-vg paths -x graph.xg -L > paths.txt
-grep -Fx "ref" paths.txt >/dev/null
-
-vg viz -x graph.xg -o graph.svg
-test -s graph.svg
-grep -F "<svg" graph.svg >/dev/null
-EOF
-
-RUN cat > /opt/vg/share/testdata/vg-gfaz-smoke.sh <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-tmp="${1:-/tmp/taf-vg-gfaz-smoke}"
-fixture="${2:-/opt/vg/share/testdata/tiny.gfaz}"
-expected_sha256="809752f1e0569842e8a44620411c9b897c2bcc606acf7baa0b1b8a2f0e60185e"
-
-rm -rf "$tmp"
-mkdir -p "$tmp"
-trap 'rm -rf "$tmp"' EXIT
-cd "$tmp"
-
-test -s "$fixture"
-printf '%s  %s\n' "$expected_sha256" "$fixture" | sha256sum -c - >/dev/null
-
-vg convert -g -f "$fixture" > tiny.gfa
-test -s tiny.gfa
-grep -F $'S\t' tiny.gfa >/dev/null
-
-vg stats -z "$fixture" > tiny.stats.tsv
-grep -F "nodes" tiny.stats.tsv >/dev/null
-grep -F "edges" tiny.stats.tsv >/dev/null
-EOF
-
-# Keep build-time checks lightweight for QEMU arm64 builds. Full graph,
-# rendering, and GFAz paths run as independent runtime/index smoke tests.
-RUN set -eux; \
-    chmod 0755 /opt/vg/share/testdata/vg-smoke.sh /opt/vg/share/testdata/vg-gfaz-smoke.sh; \
-    test "$(vg version 2>&1 | sed -n '1p')" = "vg version v${VG_VERSION}"; \
-    { vg help 2>&1 || true; } | grep -F "usage: vg <command> [options]" >/dev/null; \
-    { vg convert --help 2>&1 || true; } | grep -F "GFAZ format" >/dev/null; \
-    { vg deconstruct --help 2>&1 || true; } | grep -F -- "--cluster-min-len" >/dev/null; \
-    command -v samtools >/dev/null; \
-    command -v bgzip >/dev/null; \
-    command -v tabix >/dev/null; \
-    printf '%s  %s\n' "${VG_LICENSE_SHA256}" /opt/vg/share/licenses/vg/LICENSE | sha256sum -c -; \
-    printf '%s  %s\n' "${GFAZ_FIXTURE_SHA256}" /opt/vg/share/testdata/tiny.gfaz | sha256sum -c -; \
-    ldd "$(command -v vg)" > /tmp/taf-vg-ldd.txt 2>&1 || true; \
-    grep -F "not a dynamic executable" /tmp/taf-vg-ldd.txt >/dev/null; \
-    rm -f /tmp/taf-vg-ldd.txt
-
-WORKDIR /root
-
-ENV TAFFISH_ENV=TAFFISH
-ENV TAFFISH_NAME=vg
+    vg version > /tmp/vg-version.txt 2>&1; \
+    grep -Fx 'vg version v1.77.0 "Ruby"' /tmp/vg-version.txt; \
+    { vg help 2>&1 || true; } | grep -F 'usage: vg <command> [options]'; \
+    node --version; vg-tubemap --help; vg-resources list; \
+    node --check /opt/vg/tubemap/src/server.mjs; \
+    test -s /opt/vg/tubemap/build/index.html; \
+    test -s /opt/vg/tubemap/licenses/npm-inventory.json; \
+    rm -f /tmp/vg-version.txt
+WORKDIR /tmp
+ENV TAFFISH_ENV=TAFFISH TAFFISH_NAME=vg PYTHONDONTWRITEBYTECODE=1

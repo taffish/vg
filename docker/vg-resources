@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+"""显式固定 GFA 资源成员；原子安装、断点恢复、完整校验、共享只读复用。"""
+import argparse
+import gzip
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+
+SCHEMA = 'taffish.vg.resource.v1'
+CATALOG = json.loads(Path('/opt/vg/share/resource-catalog.json').read_text())
+MEMBERS = {'graph.gfa.gz','resource.json','SHA256SUMS','READY'}
+def digest(path):
+    h = hashlib.sha256()
+    with path.open('rb') as stream:
+        for block in iter(lambda:stream.read(4*1024*1024),b''): h.update(block)
+    return h.hexdigest()
+
+def header(path):
+    # 仅分型，不把文件头探针包装成完整科学/图一致性验证。
+    with gzip.open(path,'rb') as stream: sample = stream.read(1024*1024)
+    if not any(line.startswith((b'H\t',b'S\t')) for line in sample.splitlines()):
+        raise ValueError('expected gzip-compressed GFA with H/S record near start')
+
+def verify(root, identity=None):
+    if root.is_symlink() or not root.is_dir(): raise ValueError('member must be a physical directory')
+    if {p.name for p in root.iterdir()} != MEMBERS or any(p.is_symlink() or not p.is_file() for p in root.iterdir()):
+        raise ValueError('member inventory missing, extra, non-file or symlink')
+    if (root/'READY').read_text().strip() != digest(root/'SHA256SUMS'): raise ValueError('READY checksum mismatch')
+    rows = {}
+    for line in (root/'SHA256SUMS').read_text().splitlines():
+        checksum,name = line.split('  ',1)
+        if name not in {'graph.gfa.gz','resource.json'} or name in rows or not re.fullmatch('[a-f0-9]{64}',checksum):
+            raise ValueError('invalid checksum inventory')
+        if digest(root/name) != checksum: raise ValueError('checksum mismatch: '+name)
+        rows[name] = checksum
+    if set(rows) != {'graph.gfa.gz','resource.json'}: raise ValueError('incomplete checksum inventory')
+    receipt = json.loads((root/'resource.json').read_text())
+    rid = receipt['resource']
+    if receipt['schema'] != SCHEMA or not re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.-]*',rid): raise ValueError('invalid identity/schema')
+    if identity is not None and identity != rid: raise ValueError('requested resource identity mismatch')
+    source = receipt['source']
+    if source['sha256'] != rows['graph.gfa.gz'] or source['bytes'] != (root/'graph.gfa.gz').stat().st_size:
+        raise ValueError('source size/checksum identity mismatch')
+    if rid in CATALOG:
+        if source != CATALOG[rid]: raise ValueError('source differs from fixed catalog')
+    elif not rid.startswith('local-') or not source.get('license') or not source.get('assembly'):
+        raise ValueError('custom resource requires local-* identity, assembly and authorized license note')
+    if source.get('kind') != 'gfa-gzip': raise ValueError('wrong resource type')
+    header(root/'graph.gfa.gz')
+    print('verified resource='+rid,flush=True)
+    return receipt
+
+def install(a):
+    rid = a.resource
+    if not re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.-]*',rid): raise ValueError('choose a safe explicit resource ID')
+    source = Path(a.source).resolve(strict=True) if a.source else None
+    item = CATALOG.get(rid)
+    if item is None:
+        if not rid.startswith('local-') or source is None or not a.assembly or not a.license_note or not re.fullmatch('[a-f0-9]{64}',a.sha256 or ''):
+            raise ValueError('local-* requires --source, --sha256, --assembly, --license-note')
+        item = dict(kind='gfa-gzip',assembly=a.assembly,bytes=source.stat().st_size,
+                    sha256=a.sha256,license=a.license_note,origin=source.name)
+    root = Path(a.resource_root).resolve()
+    target = root/rid
+    required = 2*item['bytes']+67108864
+    if a.dry_run:
+        print(json.dumps(dict(resource=rid,source=item,target=str(target),required_free_bytes=required),indent=2)); return
+    if target.exists() or target.is_symlink():
+        if verify(target,rid)['source'] != item: raise ValueError('existing immutable source differs; choose a new ID')
+        print('already installed; no download or writes'); return
+    root.mkdir(parents=True,exist_ok=True)
+    lock = root/('.'+rid+'.lock')
+    try: lock.mkdir(mode=0o700)
+    except FileExistsError: raise ValueError('lock exists; inspect owner before recovery: '+str(lock)) from None
+    stage = None
+    try:
+        (lock/'owner.json').write_text(json.dumps(dict(uid=os.getuid(),pid=os.getpid(),time=time.time())))
+        if shutil.disk_usage(root).free < required: raise ValueError('insufficient free bytes: need '+str(required))
+        if source is None:
+            cache = root/'.downloads'
+            if cache.is_symlink(): raise ValueError('cache symlink refused')
+            cache.mkdir(mode=0o700,exist_ok=True)
+            if cache.stat().st_uid != os.getuid() or cache.stat().st_mode & 0o077:
+                raise ValueError('cache must be owned by installer and mode 0700')
+            source = cache/(item['sha256']+'.part')
+            if source.is_symlink() or (source.exists() and not source.is_file()): raise ValueError('invalid cache member')
+            if not source.exists() or source.stat().st_size < item['bytes']:
+                print('downloading explicit member '+rid+'; resume enabled',flush=True)
+                subprocess.run(['curl','--fail','--location','--proto','=https','--proto-redir','=https',
+                    '--retry','3','--retry-all-errors','--connect-timeout','30','--max-time','21600',
+                    '--continue-at','-','--output',str(source),item['url']],check=True)
+        if source.stat().st_size != item['bytes'] or digest(source) != item['sha256']:
+            raise ValueError('size/checksum mismatch; no promotion, retained partial for diagnosis')
+        header(source)
+        stage = Path(tempfile.mkdtemp(prefix='.'+rid+'.stage-',dir=root))
+        shutil.copyfile(source,stage/'graph.gfa.gz')
+        (stage/'resource.json').write_text(json.dumps(dict(schema=SCHEMA,resource=rid,source=item,
+            created_utc=time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),uid=os.getuid()),sort_keys=True,indent=2)+'\n')
+        (stage/'SHA256SUMS').write_text(''.join(digest(stage/n)+'  '+n+'\n' for n in ['graph.gfa.gz','resource.json']))
+        (stage/'READY').write_text(digest(stage/'SHA256SUMS')+'\n')
+        for path in stage.iterdir(): path.chmod(0o644)
+        stage.chmod(0o755)
+        verify(stage,rid)
+        if target.exists() or target.is_symlink(): raise ValueError('destination appeared; refusing overwrite')
+        stage.rename(target); stage = None
+        print('installed resource='+rid+' root='+str(target),flush=True)
+    finally:
+        if stage is not None: shutil.rmtree(stage)
+        (lock/'owner.json').unlink(missing_ok=True)
+        lock.rmdir()
+
+def main():
+    p = argparse.ArgumentParser(description='Fixed shared GFA members; explicit download/import, never automatic analysis downloads.')
+    sub = p.add_subparsers(dest='command',required=True)
+    sub.add_parser('list',help='offline catalog; no default member and no whole-family download')
+    v = sub.add_parser('verify',help='offline full SHA256/inventory and GFA-type check'); v.add_argument('root'); v.add_argument('--expected-resource')
+    i = sub.add_parser('install',help='atomic resumable install to actual writable host bind')
+    i.add_argument('--resource',required=True); i.add_argument('--resource-root',required=True)
+    i.add_argument('--source'); i.add_argument('--sha256'); i.add_argument('--assembly'); i.add_argument('--license-note'); i.add_argument('--dry-run',action='store_true')
+    a = p.parse_args(); os.umask(0o022)
+    if a.command == 'list': print(json.dumps(CATALOG,indent=2))
+    elif a.command == 'verify': verify(Path(a.root),a.expected_resource)
+    else: install(a)
+
+if __name__ == '__main__':
+    try: main()
+    except (ValueError,OSError,KeyError,subprocess.CalledProcessError) as error:
+        print('vg-resources: '+str(error),file=sys.stderr); sys.exit(1)

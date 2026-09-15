@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+"""在独占可写 session 运行固定 Tube Map；镜像和用户输入始终只读。"""
+import argparse
+import json
+import os
+from pathlib import Path
+import secrets
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.request
+
+ROOT = Path('/opt/vg/tubemap')
+def main():
+    p = argparse.ArgumentParser(description='Sequence Tube Map browser GUI for VG; local files, private scratch, Ctrl-C to stop.')
+    p.add_argument('--data-dir',help='existing trusted graph/index directory; no writes to inputs')
+    p.add_argument('--port',type=int,default=int(os.environ.get('TAFFISH_VG_GUI_INTERNAL_PORT',os.environ.get('TAFFISH_VG_GUI_PORT','3000'))))
+    p.add_argument('--bind',choices=['127.0.0.1','0.0.0.0'],default='0.0.0.0' if os.environ.get('TAFFISH_VG_GUI_BRIDGE')=='1' else '127.0.0.1')
+    p.add_argument('--allow-remote',action='store_true',help='explicitly allow trusted upstream URL downloads; no public/untrusted service use')
+    p.add_argument('--startup-timeout',type=float,default=60)
+    a = p.parse_args()
+    if not 1024 <= a.port <= 65535 or a.startup_timeout <= 0:
+        p.error('port must be 1024..65535 and startup timeout positive')
+    data = Path(a.data_dir).resolve(strict=True) if a.data_dir else None
+    if data and not data.is_dir():
+        p.error('--data-dir must be a directory')
+    # 上游按路径字符串限制访问；不接受会离开输入目录或形成循环的符号链接。
+    if data:
+        for directory, dirs, files in os.walk(data):
+            if any((Path(directory)/n).is_symlink() for n in dirs+files):
+                p.error('--data-dir contains symlinks; provide a physical read-only dataset directory')
+    stopped = [0]
+    def on_signal(sig, frame):
+        # A foreground shell can exit before its child and hang up the PTY.
+        # Keep cleanup alive on HUP; an explicit INT/TERM takes precedence.
+        if sig != signal.SIGHUP or not stopped[0]:
+            stopped[0] = sig
+    for sig in (signal.SIGINT,signal.SIGTERM,signal.SIGHUP):
+        signal.signal(sig,on_signal)
+    session = Path(tempfile.mkdtemp(prefix='taf-vg-gui-'))
+    session.chmod(0o700)
+    process = None
+    code = 1
+    host_port = os.environ.get('TAFFISH_VG_GUI_PORT',str(a.port))
+    token = secrets.token_hex(24)
+    log = session/'server.log'
+    print(f'vg-tubemap starting\nHost URL: http://127.0.0.1:{host_port}\nSSH: ssh -N -L {host_port}:127.0.0.1:{host_port} USER@HOST\nCtrl-C to stop; TERM also supported\nLog: {log}',flush=True)
+    try:
+        for name in ['uploads','tmp','downloads','data']:
+            (session/name).mkdir(mode=0o700)
+        if data is None:
+            # 上游前端把空 mounted inventory 显示为错误；默认 session 提供合成图，
+            # 既可作为默认 demo，也可在 custom picker 选择。绝不写入用户 data-dir。
+            shutil.copyfile(ROOT/'exampleData/taffish/tiny.xg',session/'data/tiny.xg')
+        (session/'src').mkdir(mode=0o700)
+        for source in (ROOT/'src').glob('*.mjs'):
+            shutil.copyfile(source,session/'src'/source.name)
+        shutil.copyfile(ROOT/'tubemap-launch.mjs',session/'tubemap-launch.mjs')
+        for name in ['node_modules','build','exampleData']:
+            (session/name).symlink_to(ROOT/name,target_is_directory=True)
+        config = json.loads((ROOT/'src/config.json').read_text())
+        config.update(dataPath=str(data) if data else 'data',serverPort=a.port,
+                      serverBindAddress=a.bind,tempDirPath='downloads')
+        (session/'src/config.json').write_text(json.dumps(config))
+        # 预检只拒绝占用，不对不属于本 session 的进程发送信号。
+        with socket.socket() as probe:
+            probe.bind((a.bind,a.port))
+        if stopped[0]:
+            return 128+stopped[0]
+        env = dict(os.environ,NODE_ENV='production',SERVER_PORT=str(a.port),
+                   HOME=str(session),TMPDIR=str(session/'tmp'),
+                   TAFFISH_VG_SESSION_TOKEN=token,
+                   TAFFISH_VG_ALLOW_REMOTE='1' if a.allow_remote else '0')
+        with log.open('wb') as output:
+            process = subprocess.Popen(['node',str(session/'tubemap-launch.mjs')],cwd=session,
+                env=env,stdout=output,stderr=subprocess.STDOUT,start_new_session=True)
+            deadline = time.monotonic()+a.startup_timeout
+            ready = False
+            while not stopped[0]:
+                if process.poll() is not None:
+                    raise RuntimeError(f'Node/HTTP/WebSocket/watch component exited ({process.returncode})')
+                if not ready and (session/'ready.json').exists():
+                    receipt = json.loads((session/'ready.json').read_text())
+                    if receipt['pid'] != process.pid or receipt['token'] != token:
+                        raise RuntimeError('readiness ownership mismatch')
+                    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+                    with opener.open(f'http://127.0.0.1:{a.port}/api/v0/getFilenames',timeout=2) as response:
+                        assert isinstance(json.load(response)['files'],list)
+                    with opener.open(f'http://127.0.0.1:{a.port}/',timeout=2) as response:
+                        assert b'<html' in response.read()
+                    print(f'vg-tubemap ready: http://127.0.0.1:{host_port}',flush=True)
+                    ready = True
+                if not ready and time.monotonic()>deadline:
+                    raise RuntimeError('readiness timeout: Node/HTTP/WebSocket/watch not ready')
+                time.sleep(0.05)
+        code = 128+stopped[0]
+    except (OSError,ValueError,RuntimeError,AssertionError) as error:
+        print('vg-tubemap failed: '+str(error),file=sys.stderr,flush=True)
+        if log.exists():
+            print(log.read_text(errors='replace')[-8000:],file=sys.stderr,flush=True)
+    finally:
+        if stopped[0]:
+            code = 128+stopped[0]
+            print('vg-tubemap stopping: '+signal.Signals(stopped[0]).name,flush=True)
+        if process is not None and process.pid>1:
+            # 唯一本轮 Popen(start_new_session) 的 PGID；连同 vg grandchildren 限时回收。
+            try: os.killpg(process.pid,signal.SIGTERM)
+            except ProcessLookupError: pass
+            deadline = time.monotonic()+3
+            while time.monotonic()<deadline:
+                process.poll()
+                try: os.killpg(process.pid,0)
+                except ProcessLookupError: break
+                time.sleep(.05)
+            else:
+                try: os.killpg(process.pid,signal.SIGKILL)
+                except ProcessLookupError: pass
+            process.wait(timeout=5)
+        shutil.rmtree(session)
+        print('vg-tubemap stopped; private session removed',flush=True)
+    return code
+
+if __name__ == '__main__':
+    try: sys.exit(main())
+    except (OSError,ValueError) as error:
+        print('vg-tubemap: '+str(error),file=sys.stderr); sys.exit(1)

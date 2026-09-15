@@ -1,7 +1,7 @@
 [package]
 name = "vg"
 kind = "tool"
-version = "1.76.1"
+version = "1.77.0"
 release = 1
 license = "Apache-2.0"
 main = "src/main.taf"
@@ -17,7 +17,7 @@ pipe = true
 command_mode = true
 
 [container]
-image = "ghcr.io/taffish/vg:1.76.1-r1"
+image = "ghcr.io/taffish/vg:1.77.0-r1"
 dockerfile = "docker/Dockerfile"
 build_platforms = "linux/amd64,linux/arm64"
 
@@ -25,7 +25,7 @@ build_platforms = "linux/amd64,linux/arm64"
 domain = "bio"
 categories = ["pangenome", "variation-graph", "graph-alignment", "genotyping", "variant-calling"]
 keywords = ["vg", "variation graph", "pangenome graph", "GFA", "GBZ", "XG", "GCSA2", "GAM", "giraffe", "genotyping", "variant calling", "graph construction"]
-description = "VG 1.76.1 command-line runtime for constructing, indexing, mapping, genotyping, calling, and converting variation graphs and pangenome graph data."
+description = "VG 1.77.0 variation-graph toolkit with fixed Sequence Tube Map browser GUI and explicit shared GFA resource management."
 
 [upstream]
 name = "vg"
@@ -33,9 +33,9 @@ type = "github"
 repo = "vgteam/vg"
 homepage = "https://github.com/vgteam/vg"
 manual = "https://github.com/vgteam/vg#usage"
-release_url = "https://github.com/vgteam/vg/releases/tag/v1.76.1"
-downloads = "quay.io/vgteam/vg:v1.76.1@sha256:e62d087d6ee64a302f1703046bc556892b530163b0dc44824b291571e8f11d9b; https://github.com/vgteam/vg/releases/tag/v1.76.1"
-version = "1.76.1"
+release_url = "https://github.com/vgteam/vg/releases/tag/v1.77.0"
+downloads = "quay.io/vgteam/vg:v1.77.0@sha256:31edee2fa9386d5c47088d303a97a14a803f7446a6d9b0bdc469310a1b94da5c; https://github.com/vgteam/vg/releases/tag/v1.77.0"
+version = "1.77.0"
 license = "MIT"
 citation = "Garrison et al. 2018, Variation graph toolkit improves read mapping by representing genetic variation in the reference, Nature Biotechnology"
 doi = "10.1038/nbt.4227"
@@ -45,5 +45,5 @@ strip_prefix = "v"
 [smoke]
 backend = "docker"
 timeout = 300
-exist = ["vg", "samtools", "bgzip", "tabix", "ldd", "bash", "grep", "sed", "sha256sum"]
-test = ["test \"$(vg version 2>&1 | sed -n '1p')\" = 'vg version v1.76.1' && grep -Fx 'tag=v1.76.1' /opt/vg/share/doc/vg/source.txt >/dev/null && grep -Fx 'tag_commit=d828cc372a8b7ee5c34e0e11d37ad63164313702' /opt/vg/share/doc/vg/source.txt >/dev/null && grep -Fx 'upstream_manifest=sha256:e62d087d6ee64a302f1703046bc556892b530163b0dc44824b291571e8f11d9b' /opt/vg/share/doc/vg/source.txt >/dev/null && grep -Fx 'github_release_prerelease_at_packaging=true' /opt/vg/share/doc/vg/source.txt >/dev/null && grep -Fx 'upstream_license_sha256=7c3fe1c48ef0594c8d6728353d9325b5f4335eceea5bda3734820d7478bdeaef' /opt/vg/share/doc/vg/source.txt >/dev/null && printf '%s  %s\n' '7c3fe1c48ef0594c8d6728353d9325b5f4335eceea5bda3734820d7478bdeaef' /opt/vg/share/licenses/vg/LICENSE | sha256sum -c - >/dev/null", "{ vg help 2>&1 || true; } | grep -F 'usage: vg <command> [options]' >/dev/null && { vg convert --help 2>&1 || true; } | grep -F 'GFAZ format' >/dev/null && { vg deconstruct --help 2>&1 || true; } | grep -F -- '--cluster-min-len' >/dev/null", "for cmd in sift join; do if vg \"$cmd\" --help > /tmp/taf-vg-removed-command.txt 2>&1; then exit 1; fi; grep -F \"command $cmd not found\" /tmp/taf-vg-removed-command.txt >/dev/null; done; for cmd in explode msga; do if vg \"$cmd\" --help > /tmp/taf-vg-removed-command.txt 2>&1; then exit 1; fi; grep -F \"$cmd has been removed\" /tmp/taf-vg-removed-command.txt >/dev/null; done", "samtools --version 2>&1 | grep -F 'samtools 1.22.1' >/dev/null && { ldd \"$(command -v vg)\" > /tmp/taf-vg-ldd.txt 2>&1 || true; } && grep -F 'not a dynamic executable' /tmp/taf-vg-ldd.txt >/dev/null", "/opt/vg/share/testdata/vg-smoke.sh /tmp/taf-vg-index-smoke-$$", "/opt/vg/share/testdata/vg-gfaz-smoke.sh /tmp/taf-vg-gfaz-smoke-$$"]
+exist = ["vg", "samtools", "bgzip", "tabix", "bash", "sha256sum", "python3", "node", "vg-tubemap", "vg-resources", "curl", "gzip", "cat"]
+test = ["vg version > /tmp/vg-version.txt 2>&1 && grep -Fx 'vg version v1.77.0 \"Ruby\"' /tmp/vg-version.txt && grep -Fx 'tag_commit=02244e42aac24a8375d71e7c3c7f07817921eab1' /opt/vg/share/doc/vg/source.txt && grep -Fx 'github_release_prerelease_at_packaging=false' /opt/vg/share/doc/vg/source.txt && grep -Fx 'tubemap_commit=33b7a7e5df9f8052974ef8e6c689a031dac6e2c9' /opt/vg/share/doc/vg/source.txt", "{ vg help 2>&1 || true; } | grep -F 'usage: vg <command> [options]' && { vg convert --help 2>&1 || true; } | grep -F 'GFAZ format' && { vg giraffe --help 2>&1 || true; } | grep -F -- '--target-alignment-attempts'", "vg-tubemap --help | grep -F -- '--data-dir' && vg-resources --help | grep -F 'verify' && samtools --version | grep -F 'samtools 1.22.1'", "/opt/vg/share/testdata/vg-smoke.sh", "python3 /opt/vg/share/testdata/resource-smoke.py", "python3 /opt/vg/share/testdata/gui-smoke.py normal", "python3 /opt/vg/share/testdata/gui-smoke.py interrupt", "python3 /opt/vg/share/testdata/gui-smoke.py failure", "python3 /opt/vg/share/testdata/gui-smoke.py hangup", "python3 /opt/vg/share/testdata/licenses-smoke.py"]
