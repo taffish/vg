@@ -9,7 +9,7 @@ def sha(path):
         for block in iter(lambda:stream.read(4*1024*1024),b''): h.update(block)
     return h.hexdigest()
 root=Path('/opt/vg/share')
-assert sha(root/'sources/vg-v1.77.0.tar.gz')=='5e875e1a75c01cf52f33b57d3e937a770abbb3f3239509bef214278815424e22'
+assert sha(root/'sources/vg-v1.78.0.tar.gz')=='2462a063cfdeeef328fb8053d8f1b140fc6b0039a88f3b4a74d8ab7f0b610bc0'
 assert sha(root/'sources/sequenceTubeMap-33b7a7e.tar.gz')=='a133a4d79dafafce6f67d0ea8dd90ab11f8ac893c63deed401c8d7a924df9b1f'
 assert sha(root/'licenses/vg/LICENSE')=='7c3fe1c48ef0594c8d6728353d9325b5f4335eceea5bda3734820d7478bdeaef'
 assert (root/'licenses/node/LICENSE').stat().st_size>10000

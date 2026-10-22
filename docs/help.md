@@ -1,4 +1,4 @@
-vg 1.77.0-r1
+vg 1.78.0-r1
 
 Purpose:
   VG variation-graph CLI, plus an optional Sequence Tube Map browser GUI.
@@ -45,7 +45,7 @@ Install one shared GFA resource (network and substantial disk space required):
   base="$HOME/.local/share/taffish/resources/vg"; mkdir -p "$base"
   TAFFISH_VG_RESOURCE_INSTALL_ROOT="$base" taf-vg vg-resources install \
     --resource hprc-v1.0-mc-grch38-gfa --resource-root /resource-install --dry-run
-  Remove --dry-run to download that member (~12 GB; allow ~24 GB free).
+  Replace --dry-run with --allow-network to download (~12 GB; ~24 GB free).
   Select Docker, Podman or Apptainer with TAFFISH_CONTAINER_BACKEND as above.
   An administrator may install once into /usr/local/share/taffish/resources/vg.
   Ordinary users reuse the readable member without downloading or writing it.
@@ -56,9 +56,10 @@ Use an installed member (all three backends):
   taf-vg vg-resources verify /vg-resource
   taf-vg sh -c "'gzip -dc /vg-resource/graph.gfa.gz | vg convert -g -x -'" > graph.xg
   Personal, /usr/local/share/taffish and /opt/taffish resource paths are searched.
-  TAFFISH_VG_RESOURCE_PATH=/physical/member overrides discovery.
+  TAFFISH_VG_RESOURCE_PATH=/physical/member overrides discovery; ID must match.
   TAFFISH_VG_RESOURCE_AUTO_MOUNT=0 disables it; unset the ID when not needed.
-  Selection validates hashes, which can take time for a large graph.
+  Selection needs host Python 3 and hashes the whole member (may take time).
+  Without host Python, disable discovery and use in-image verify/manual bind.
   Manual read-only bind fallback (choose one; auto mount disabled):
   Docker:    TAFFISH_DOCKER_RUN_ARGS='-v /physical/member:/vg-resource:ro'
   Podman:    TAFFISH_PODMAN_RUN_ARGS='-v /physical/member:/vg-resource:ro'
@@ -74,7 +75,7 @@ Immediate notes:
   GPU/device access is not needed. GUI bind paths must contain trusted files,
   without symlinks. Never serve private genomic data to untrusted clients.
   VG 1.77 surject requires -i for paired input or -U for forced unpaired input.
-  giraffe --min-chains became --target-alignment-attempts; chain was removed.
+  VG 1.78 deprecates viz; use Tube Map for interactive viewing.
   pack/call must use the same graph and indexes, not merely matching filenames.
 
 More help:

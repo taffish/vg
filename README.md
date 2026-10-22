@@ -1,20 +1,20 @@
 # vg
 
-`vg` packages **VG 1.77.0-r1** for TAFFISH, with the official optional
+`vg` packages **VG 1.78.0-r1** for TAFFISH, with the official optional
 Sequence Tube Map browser service at a fixed, separately identified commit.
 
 - Command: `taf-vg`; kind: `tool`.
 - Packaging license: Apache-2.0. VG and Tube Map: MIT; dependencies retain their licenses.
-- Upstream: [VG v1.77.0](https://github.com/vgteam/vg/releases/tag/v1.77.0).
-- Install after publication: `taf install taf-vg-v1.77.0-r1`.
+- Upstream: [VG v1.78.0](https://github.com/vgteam/vg/releases/tag/v1.78.0).
+- Install after publication: `taf install taf-vg-v1.78.0-r1`.
 - This working candidate is not evidence that the release is published.
 
 ## What This App Packages
 
 The unmodified official VG multiarch runtime is pinned to OCI index
-`sha256:31edee2fa9386d5c47088d303a97a14a803f7446a6d9b0bdc469310a1b94da5c`.
-The VG tag resolves to `02244e42aac24a8375d71e7c3c7f07817921eab1`;
-runtime reports `vg version v1.77.0 "Ruby"`. This is a stable release, not a prerelease.
+`sha256:febc2401166d4acd81cbf07d89158feccee8c13de70613f72e641d48ceea4ca8`.
+The VG tag resolves to `315509da9be8a4ca7c94631b471d0d835dbd7a33`;
+runtime reports `vg version v1.78.0 "Sharptooth"`. This is a stable release, not a prerelease.
 
 [Sequence Tube Map](https://github.com/vgteam/sequenceTubeMap) is the official
 optional companion, fixed at `33b7a7e5df9f8052974ef8e6c689a031dac6e2c9`.
@@ -152,7 +152,7 @@ base="$HOME/.local/share/taffish/resources/vg"
 mkdir -p "$base"
 TAFFISH_VG_RESOURCE_INSTALL_ROOT="$base" taf-vg vg-resources install \
   --resource hprc-v1.0-mc-grch38-gfa --resource-root /resource-install --dry-run
-# Remove --dry-run after reviewing source, explicit member, license and disk need.
+# Review the dry-run, then replace --dry-run with --allow-network to download.
 export TAFFISH_VG_RESOURCE_ID=hprc-v1.0-mc-grch38-gfa
 taf-vg vg-resources verify /vg-resource
 taf-vg sh -c "'gzip -dc /vg-resource/graph.gfa.gz | vg convert -g -x -'" > graph.xg
@@ -163,15 +163,22 @@ An administrator can instead create /usr/local/share/taffish/resources/vg
 (or /opt/taffish/resources/vg) and run the installer once with that install
 root. No ordinary user needs root or a duplicate download afterward. This is an
 administrator-once installation with read-only ordinary-user reuse; analysis
-and verify are offline, while installation alone may download from the network.
+and verify are offline. Installation needs --source or explicit --allow-network;
+without either it fails before creating a lock, cache or stage.
 Do not change shared caches/permissions merely to run analysis.
 
 Each member contains graph.gfa.gz, resource.json, SHA256SUMS and READY. The helper
 requires explicit selection, rejects corrupt/extra/symlink members, checks
-size/SHA and gzip/GFA type, keeps resumable .downloads partials, takes an owner
-lock, stages privately and promotes atomically. Existing identical members are
-verified without writes; conflicting content is never overwritten. Stale locks
-require owner inspection before manual recovery. Allow about twice the payload
+size/SHA and gzip/GFA type, keeps resumable .downloads partials, takes a kernel flock,
+stages privately and promotes with Linux no-replace rename. Existing identical members are
+verified without writes; conflicting content is never overwritten. The persistent .vg-resources.lock file is not a stale lock: the kernel releases
+ownership when the process exits. Legacy per-member .ID.lock directories require
+owner inspection before manual recovery; they are not silently deleted.
+INT/TERM/HUP stop the owned download child and remove only the owned staging
+path, never an old or newly promoted member. Interrupted partials are retained;
+empty and nonempty partials are resumed on explicit retry. A completed but wrong
+partial fails checksum verification and is retained for diagnosis. Quarantine
+only that verified-bad partial before retrying; never delete installed members. Allow about twice the payload
 size plus headroom during install. Direct Index smoke uses only unique /tmp;
 a top-level /resource-install is writable only when an actual bind is supplied.
 
@@ -187,10 +194,15 @@ Discovery (only after an explicit ID) checks:
 3. /opt/taffish/resources/vg/ID
 
 TAFFISH_VG_RESOURCE_PATH selects a specific member and takes precedence;
+if RESOURCE_ID is also set, the identities must match (unset it when selecting a
+different path). An explicitly empty override is invalid, not a fallback.
 TAFFISH_VG_RESOURCE_AUTO_MOUNT=0 disables analysis auto-mount. Install-root mode
 is separate and higher priority. Selected members undergo full checksum/inventory
 checks, including fixed-catalog SHA binding; large graphs incur hashing time.
-Automatic bind paths use safe physical paths (letters/digits/_/./+/-).
+Automatic validation uses host Python 3 and the exact same validator/catalog as
+the in-image helper. Without host Python, disable automatic discovery, perform
+in-image verify, then use the manual read-only bind below. Physical paths may
+contain spaces; colon/comma are refused as backend bind delimiters.
 An explicit root symlink may resolve to a physical directory; member symlinks
 and corrupt inventories are refused. Missing/corrupt selected resources fail
 closed instead of falling through to an unverified dataset.
@@ -213,7 +225,10 @@ data. Project-specific binary indexes remain explicitly version-bound user input
 
 ## Version Migration and Troubleshooting
 
-- 1.77.0 surject requires explicit -i for paired reads or -U for forced unpaired.
+- 1.78.0 deprecates `vg viz` (still available); prefer Tube Map for interactive viewing.
+- SAM/BAM M5 checksums are no longer calculated or checked upstream; do not rely
+  on the old M5 behavior for independent input identity verification.
+- Since 1.77, surject requires explicit -i for paired reads or -U for forced unpaired.
 - giraffe --min-chains is renamed --target-alignment-attempts; chain is removed.
   mcmc/genotype are deprecated; snarls --pathnames is removed.
 - GBZ v3 can be read; output defaults and index compatibility follow upstream.
@@ -230,13 +245,21 @@ data. Project-specific binary indexes remain explicitly version-bound user input
 
 ## Testing and Publication Boundary
 
-Current build/smoke/wrapper/backend, GUI browser/lifecycle, image-size and license
-evidence belongs in release.md and the maintainer evidence receipt. Every new
-candidate requires current native-platform and backend tests; merely listing
-a capability above is not a PASS receipt. No backend exception is presumed.
+The 1.78.0-r1 candidate passed native root-context builds on amd64 (xjp) and
+arm64 (Docker Desktop Linux VM), with current image identities in release.md.
+Docker and Podman passed fresh/offline normal and read-only-root exact probes
+on both architectures; the same amd64 OCI passed as a real read-only Apptainer
+SIF. Real wrappers passed CLI, persistent output, resource negative/recovery/
+idempotence, and GUI startup/ready INT/TERM checks on all five combinations.
+Browser rendering, help, display controls and SVG download were checked at
+1280x720 and 768x900; both native images have identical frontend assets.
+ARM64 Apptainer is not separately validated; the native platform and backend
+axes are separate, not a claim that all six combinations were tested.
+No backend exception was used. Detailed receipts and image sizes are in release.md.
 Only synthetic engineering fixtures are used; tests do not validate scientific
 accuracy, clinical use, complete HPRC datasets or production performance.
-The canonical Action is copied byte-for-byte from fresh taf new. It builds from
+The existing canonical Action matches a fresh taf new --tool --docker template
+byte-for-byte and is unchanged in this update. It builds from
 app root on native amd64/arm64 runners. Full rendering is runtime-only.
 Publication remains a separate maintainer action after the checklist passes.
 
@@ -245,14 +268,15 @@ For a source checkout, build and run the generated wrapper:
 ```sh
 taf build
 TAFFISH_CONTAINER_BACKEND=docker TAFFISH_VG_GUI=1 TAFFISH_VG_GUI_PORT=8300 \
-  ./target/taf-vg-v1.77.0-r1 vg-tubemap
+  ./target/taf-vg-v1.78.0-r1 vg-tubemap
 ```
 
 Use `podman` or `apptainer` in the same backend selector on native Linux.
 Do not use the development `taf run` command for this long-running service:
-the tested TAFFISH 0.11 path buffered startup output and left a container after
-interruption. That core diagnostic is recorded separately and is not a supported
-GUI launch path. Installed users use `taf-vg`; no local build is needed.
+the tested TAFFISH 0.11 path buffered startup output until the service exited.
+The diagnostic explicitly stopped its own container; it does not certify
+development-launcher signal management. That path is not a supported GUI launch
+method. Installed users use `taf-vg`; no local build is needed.
 
 For short CLI development, `taf run` can generate a named output file in
 writable project storage, but its tested TAFFISH 0.11 stdout capture is not

@@ -1,7 +1,7 @@
 [package]
 name = "vg"
 kind = "tool"
-version = "1.77.0"
+version = "1.78.0"
 release = 1
 license = "Apache-2.0"
 main = "src/main.taf"
@@ -17,7 +17,7 @@ pipe = true
 command_mode = true
 
 [container]
-image = "ghcr.io/taffish/vg:1.77.0-r1"
+image = "ghcr.io/taffish/vg:1.78.0-r1"
 dockerfile = "docker/Dockerfile"
 build_platforms = "linux/amd64,linux/arm64"
 
@@ -25,7 +25,7 @@ build_platforms = "linux/amd64,linux/arm64"
 domain = "bio"
 categories = ["pangenome", "variation-graph", "graph-alignment", "genotyping", "variant-calling"]
 keywords = ["vg", "variation graph", "pangenome graph", "GFA", "GBZ", "XG", "GCSA2", "GAM", "giraffe", "genotyping", "variant calling", "graph construction"]
-description = "VG 1.77.0 variation-graph toolkit with fixed Sequence Tube Map browser GUI and explicit shared GFA resource management."
+description = "VG 1.78.0 variation-graph toolkit with fixed Sequence Tube Map browser GUI and explicit shared GFA resource management."
 
 [upstream]
 name = "vg"
@@ -33,9 +33,9 @@ type = "github"
 repo = "vgteam/vg"
 homepage = "https://github.com/vgteam/vg"
 manual = "https://github.com/vgteam/vg#usage"
-release_url = "https://github.com/vgteam/vg/releases/tag/v1.77.0"
-downloads = "quay.io/vgteam/vg:v1.77.0@sha256:31edee2fa9386d5c47088d303a97a14a803f7446a6d9b0bdc469310a1b94da5c; https://github.com/vgteam/vg/releases/tag/v1.77.0"
-version = "1.77.0"
+release_url = "https://github.com/vgteam/vg/releases/tag/v1.78.0"
+downloads = "quay.io/vgteam/vg:v1.78.0@sha256:febc2401166d4acd81cbf07d89158feccee8c13de70613f72e641d48ceea4ca8; https://github.com/vgteam/vg/releases/tag/v1.78.0"
+version = "1.78.0"
 license = "MIT"
 citation = "Garrison et al. 2018, Variation graph toolkit improves read mapping by representing genetic variation in the reference, Nature Biotechnology"
 doi = "10.1038/nbt.4227"
@@ -46,4 +46,4 @@ strip_prefix = "v"
 backend = "docker"
 timeout = 300
 exist = ["vg", "samtools", "bgzip", "tabix", "bash", "sha256sum", "python3", "node", "vg-tubemap", "vg-resources", "curl", "gzip", "cat"]
-test = ["vg version > /tmp/vg-version.txt 2>&1 && grep -Fx 'vg version v1.77.0 \"Ruby\"' /tmp/vg-version.txt && grep -Fx 'tag_commit=02244e42aac24a8375d71e7c3c7f07817921eab1' /opt/vg/share/doc/vg/source.txt && grep -Fx 'github_release_prerelease_at_packaging=false' /opt/vg/share/doc/vg/source.txt && grep -Fx 'tubemap_commit=33b7a7e5df9f8052974ef8e6c689a031dac6e2c9' /opt/vg/share/doc/vg/source.txt", "{ vg help 2>&1 || true; } | grep -F 'usage: vg <command> [options]' && { vg convert --help 2>&1 || true; } | grep -F 'GFAZ format' && { vg giraffe --help 2>&1 || true; } | grep -F -- '--target-alignment-attempts'", "vg-tubemap --help | grep -F -- '--data-dir' && vg-resources --help | grep -F 'verify' && samtools --version | grep -F 'samtools 1.22.1'", "/opt/vg/share/testdata/vg-smoke.sh", "python3 /opt/vg/share/testdata/resource-smoke.py", "python3 /opt/vg/share/testdata/gui-smoke.py normal", "python3 /opt/vg/share/testdata/gui-smoke.py interrupt", "python3 /opt/vg/share/testdata/gui-smoke.py failure", "python3 /opt/vg/share/testdata/gui-smoke.py hangup", "python3 /opt/vg/share/testdata/licenses-smoke.py"]
+test = ["vg version > /tmp/vg-version.txt 2>&1 && grep -Fx 'vg version v1.78.0 \"Sharptooth\"' /tmp/vg-version.txt && grep -Fx 'tag_commit=315509da9be8a4ca7c94631b471d0d835dbd7a33' /opt/vg/share/doc/vg/source.txt && grep -Fx 'github_release_prerelease_at_packaging=false' /opt/vg/share/doc/vg/source.txt && grep -Fx 'tubemap_commit=33b7a7e5df9f8052974ef8e6c689a031dac6e2c9' /opt/vg/share/doc/vg/source.txt", "{ vg help 2>&1 || true; } | grep -F 'usage: vg <command> [options]' && { vg convert --help 2>&1 || true; } | grep -F 'GFAZ format' && { vg giraffe --help 2>&1 || true; } | grep -F -- '--target-alignment-attempts'", "vg-tubemap --help | grep -F -- '--data-dir' && vg-resources --help | grep -F 'verify' && samtools --version | grep -F 'samtools 1.22.1'", "/opt/vg/share/testdata/vg-smoke.sh", "python3 /opt/vg/share/testdata/resource-smoke.py", "python3 /opt/vg/share/testdata/gui-smoke.py normal", "python3 /opt/vg/share/testdata/gui-smoke.py interrupt", "python3 /opt/vg/share/testdata/gui-smoke.py failure", "python3 /opt/vg/share/testdata/gui-smoke.py hangup", "python3 /opt/vg/share/testdata/licenses-smoke.py"]

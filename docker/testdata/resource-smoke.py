@@ -10,6 +10,7 @@ with tempfile.TemporaryDirectory(prefix='vg-resource-test-') as tmp:
     root=Path(tmp); source=root/'tiny.gfa.gz'
     source.write_bytes(gzip.compress(Path('/opt/vg/share/testdata/tiny.gfa').read_bytes(),mtime=0))
     sha=hashlib.sha256(source.read_bytes()).hexdigest()
+    (root/'resources').mkdir()
     args=['vg-resources','install','--resource','local-tiny','--resource-root',str(root/'resources'),
           '--source',str(source),'--sha256',sha,'--assembly','synthetic-12bp','--license-note','TAFFISH synthetic CC0 test']
     subprocess.run(args,check=True)

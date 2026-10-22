@@ -1,5 +1,7 @@
-ARG VG_VERSION=1.77.0
-ARG VG_UPSTREAM_IMAGE=quay.io/vgteam/vg@sha256:31edee2fa9386d5c47088d303a97a14a803f7446a6d9b0bdc469310a1b94da5c
+ARG VG_VERSION=1.78.0
+# Digests/checksums identify upstream bytes, not permanent hosting guarantees.
+# On registry/release removal, recheck the official release; never disable verification.
+ARG VG_UPSTREAM_IMAGE=quay.io/vgteam/vg@sha256:febc2401166d4acd81cbf07d89158feccee8c13de70613f72e641d48ceea4ca8
 ARG NODE_IMAGE=mirror.gcr.io/library/node@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5
 FROM ${NODE_IMAGE} AS node
 FROM ${VG_UPSTREAM_IMAGE} AS gui-build
@@ -8,6 +10,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY --from=node /usr/local/ /usr/local/
 # Locked websocket addons need native compilation where prebuilt binaries are absent.
 # Compilers stay in the builder; use Node's matching local headers.
+# apt indexes are mutable. If a package disappears, refresh/review this builder
+# against the same base and rerun both native builds; no availability guarantee.
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
     && rm -rf /var/lib/apt/lists/*
 ENV npm_config_nodedir=/usr/local
@@ -23,6 +27,8 @@ COPY docker/prepare-tubemap.py /build/
 RUN python3 /build/prepare-tubemap.py
 WORKDIR /build/tubemap
 # The upstream lockfile and patch-package patch are preserved, not npm update.
+# npm tarball availability is external; integrity failure requires source review,
+# not a silent lockfile refresh or disabled checksum.
 # Front-end compilation is not a browser/rendering or graph-analysis smoke.
 RUN npm ci --no-audit --no-fund && GENERATE_SOURCEMAP=false npm run build
 COPY docker/package-tubemap.py /build/
@@ -32,7 +38,7 @@ FROM ${VG_UPSTREAM_IMAGE} AS source-material
 USER root
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG VG_VERSION
-ARG VG_SOURCE_SHA256=5e875e1a75c01cf52f33b57d3e937a770abbb3f3239509bef214278815424e22
+ARG VG_SOURCE_SHA256=2462a063cfdeeef328fb8053d8f1b140fc6b0039a88f3b4a74d8ab7f0b610bc0
 RUN set -eux; \
     mkdir -p /out/sources /out/licenses/vg-dependencies /unpack; \
     curl -fL --retry 3 --connect-timeout 30 --max-time 1800 \
@@ -46,7 +52,7 @@ RUN python3 /unpack/collect-vg-notices.py
 FROM ${VG_UPSTREAM_IMAGE}
 ARG VG_VERSION
 ARG VG_UPSTREAM_IMAGE
-ARG VG_TAG_COMMIT=02244e42aac24a8375d71e7c3c7f07817921eab1
+ARG VG_TAG_COMMIT=315509da9be8a4ca7c94631b471d0d835dbd7a33
 USER root
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 LABEL org.opencontainers.image.title="TAFFISH vg with Sequence Tube Map" \
@@ -62,7 +68,8 @@ COPY docker/licenses/vg-LICENSE /opt/vg/share/licenses/vg/LICENSE
 COPY docker/testdata/ /opt/vg/share/testdata/
 COPY docker/tubemap-launch.mjs /opt/vg/tubemap/tubemap-launch.mjs
 COPY docker/vg-tubemap docker/vg-resources /usr/local/bin/
-COPY docker/resource-catalog.json /opt/vg/share/resource-catalog.json
+COPY src/resource_validation.py src/resource-catalog.json /usr/local/bin/
+COPY src/resource-catalog.json /opt/vg/share/resource-catalog.json
 RUN set -eux; \
     ln -sf /vg/bin/vg /usr/local/bin/vg; \
     chmod 0755 /usr/local/bin/vg-tubemap /usr/local/bin/vg-resources /opt/vg/share/testdata/*.sh; \
@@ -74,16 +81,16 @@ RUN set -eux; \
     test -s /opt/vg/tubemap/exampleData/taffish/tiny.xg; \
     printf '%s\n' "version=${VG_VERSION}" "tag=v${VG_VERSION}" "tag_commit=${VG_TAG_COMMIT}" \
       "upstream_manifest=${VG_UPSTREAM_IMAGE#*@}" "github_release_prerelease_at_packaging=false" \
-      "upstream_amd64_manifest=sha256:ed04e303df1dcf320fa13e1fe71a984c72f0d84e8fbcc481e28b81bc1bcc5840" \
-      "upstream_arm64_manifest=sha256:11971a711893e5dc1d15b532b97f759e6f29aa95c805a59d60c7f998d3e374e7" \
-      "source_sha256=5e875e1a75c01cf52f33b57d3e937a770abbb3f3239509bef214278815424e22" \
+      "upstream_amd64_manifest=sha256:7a88081b74cad8918aca178c35c204c4daa53c3e2d59d4aca7efe970c3db0abd" \
+      "upstream_arm64_manifest=sha256:d87bb10e676f848a79e64e357ad19fcebe517e144cc8081f7afe8e570c6cbbc2" \
+      "source_sha256=2462a063cfdeeef328fb8053d8f1b140fc6b0039a88f3b4a74d8ab7f0b610bc0" \
       "tubemap_commit=33b7a7e5df9f8052974ef8e6c689a031dac6e2c9" \
       "tubemap_sha256=a133a4d79dafafce6f67d0ea8dd90ab11f8ac893c63deed401c8d7a924df9b1f" \
       > /opt/vg/share/doc/vg/source.txt
 # Stable, small build probes only. Native runtime tests cover complete CLI and GUI.
 RUN set -eux; \
     vg version > /tmp/vg-version.txt 2>&1; \
-    grep -Fx 'vg version v1.77.0 "Ruby"' /tmp/vg-version.txt; \
+    grep -Fx 'vg version v1.78.0 "Sharptooth"' /tmp/vg-version.txt; \
     { vg help 2>&1 || true; } | grep -F 'usage: vg <command> [options]'; \
     node --version; vg-tubemap --help; vg-resources list; \
     node --check /opt/vg/tubemap/src/server.mjs; \
